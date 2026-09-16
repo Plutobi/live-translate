@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live Übersetzer</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>">
+<style>
+  :root {
+    --bg: #f6f5f2; --panel: #ffffff; --text: #1b1b1f; --muted: #6b6b76;
+    --border: #e3e1dc; --accent: #d93a2b; --accent-soft: #fbe7e4; --ok: #1f8a4c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121215; --panel: #1b1b20; --text: #ececf1; --muted: #9a9aa6;
+      --border: #2c2c33; --accent: #ff5a47; --accent-soft: #3a1d1a; --ok: #4ccf86;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121215; --panel: #1b1b20; --text: #ececf1; --muted: #9a9aa6;
+    --border: #2c2c33; --accent: #ff5a47; --accent-soft: #3a1d1a; --ok: #4ccf86;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    height: 100dvh; display: flex; flex-direction: column;
+  }
+  header {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--panel);
+  }
+  h1 { font-size: 17px; margin: 0; font-weight: 650; }
+  h1 span { color: var(--muted); font-weight: 400; }
+  .spacer { flex: 1; }
+  .status { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .listening .dot { background: var(--accent); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  button, select {
+    font: inherit; font-size: 14px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); padding: 7px 12px; cursor: pointer;
+  }
+  button:hover { border-color: var(--muted); }
+  #toggle { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; min-width: 110px; }
+  #toggle.on { background: var(--panel); color: var(--accent); }
+
+  main { flex: 1; overflow-y: auto; padding: 16px; }
+  .feed { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+  .line { border-left: 3px solid var(--border); padding: 2px 0 2px 14px; }
+  .line.live { border-color: var(--accent); }
+  .en { font-size: var(--size, 26px); line-height: 1.35; font-weight: 500; }
+  .de { font-size: calc(var(--size, 26px) * .6); color: var(--muted); margin-top: 2px; }
+  body.hide-de .de { display: none; }
+  .live .en { opacity: .75; }
+  .empty { color: var(--muted); text-align: center; margin-top: 12vh; max-width: 520px; margin-inline: auto; }
+  .empty b { color: var(--text); }
+  .note {
+    max-width: 900px; margin: 0 auto 14px; padding: 10px 14px; border-radius: 8px;
+    background: var(--accent-soft); font-size: 14px; display: none;
+  }
+  footer {
+    padding: 8px 16px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border);
+    background: var(--panel); display: flex; gap: 12px; flex-wrap: wrap;
+  }
+  @media (max-width: 600px) {
+    header { gap: 8px; }
+    .status { order: 5; width: 100%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Live Übersetzer <span>Deutsch → English</span></h1>
+  <div class="spacer"></div>
+  <select id="size" title="Text size">
+    <option value="20px">Small</option>
+    <option value="26px" selected>Medium</option>
+    <option value="34px">Large</option>
+    <option value="44px">XL</option>
+  </select>
+  <button id="showDe" title="Show/hide the German original">Hide German</button>
+  <button id="save" title="Download transcript">Save</button>
+  <button id="quota" title="Add an email to raise the free translation limit">Quota</button>
+  <button id="clear">Clear</button>
+  <button id="toggle">▶ Start</button>
+  <div class="status" id="status"><span class="dot"></span><span id="statusText">Idle</span></div>
+</header>
+
+<main id="main">
+  <div class="note" id="note"></div>
+  <div class="feed" id="feed">
+    <div class="empty" id="empty">
+      Press <b>Start</b> and allow microphone access.<br>
+      German speech appears here, translated into English as it's spoken.
+    </div>
+  </div>
+</main>
+
+<footer>
+  <span>Engine: <b id="engine">checking…</b></span>
+  <span id="count"></span>
+</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const isAndroid = /Android/i.test(navigator.userAgent);
+let quotaEmail = '';
+try { quotaEmail = localStorage.getItem('lt-email') || ''; } catch {}
+
+let listening = false, rec = null, liveEl = null, liveTimer = null;
+let translator = null, engine = 'mymemory';
+const history = []; // {de, en, time}
+
+function note(msg) { $('note').innerHTML = msg; $('note').style.display = msg ? 'block' : 'none'; }
+function setStatus(t) { $('statusText').textContent = t; }
+
+// ---------- Translation ----------
+// Prefer Chrome's built-in on-device Translator (fast, free, unlimited);
+// fall back to the MyMemory web API (free, ~5000 chars/day).
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+
+// fromGesture: creating a translator that needs a download requires a user click.
+async function initTranslator(fromGesture = false) {
+  if ('Translator' in self && !translator) {
+    try {
+      const avail = await withTimeout(Translator.availability({ sourceLanguage: 'de', targetLanguage: 'en' }), 3000);
+      if (avail === 'available' || (fromGesture && avail !== 'unavailable')) {
+        translator = await Translator.create({
+          sourceLanguage: 'de', targetLanguage: 'en',
+          monitor(m) { m.addEventListener('downloadprogress', e => setStatus(`Downloading language pack ${Math.round(e.loaded * 100)}%`)); }
+        });
+        engine = 'builtin';
+      }
+    } catch (e) { console.warn('Built-in translator unavailable:', e); }
+  }
+  $('engine').textContent = engine === 'builtin'
+    ? 'Chrome on-device translator'
+    : 'MyMemory online API (free daily limit — tap Quota to raise it)';
+}
+
+const cache = new Map();
+async function translate(text) {
+  text = text.trim();
+  if (!text) return '';
+  if (cache.has(text)) return cache.get(text);
+  let out;
+  if (engine === 'builtin') {
+    out = await translator.translate(text);
+  } else {
+    const url = 'https://api.mymemory.translated.net/get?langpair=de|en&q=' + encodeURIComponent(text.slice(0, 480))
+      + (quotaEmail ? '&de=' + encodeURIComponent(quotaEmail) : '');
+    const r = await fetch(url);
+    const j = await r.json();
+    if (j.quotaFinished) throw new Error('Daily free translation limit reached — tap Quota to raise it');
+    if (j.responseStatus != 200) throw new Error(j.responseDetails || 'Translation failed');
+    out = j.responseData.translatedText;
+  }
+  cache.set(text, out);
+  return out;
+}
+
+// ---------- UI lines ----------
+function makeLine() {
+  $('empty')?.remove();
+  const el = document.createElement('div');
+  el.className = 'line live';
+  el.innerHTML = '<div class="en"></div><div class="de"></div>';
+  $('feed').appendChild(el);
+  return el;
+}
+function scrollDown() {
+  const m = $('main');
+  if (m.scrollHeight - m.scrollTop - m.clientHeight < 250) m.scrollTop = m.scrollHeight;
+}
+
+async function finalize(de) {
+  const el = liveEl || makeLine();
+  liveEl = null;
+  clearTimeout(liveTimer);
+  el.classList.remove('live');
+  el.querySelector('.de').textContent = de;
+  el.querySelector('.en').textContent = el.querySelector('.en').textContent || '…';
+  scrollDown();
+  try {
+    const en = await translate(de);
+    el.querySelector('.en').textContent = en;
+    history.push({ de, en, time: new Date() });
+  } catch (e) {
+    el.querySelector('.en').textContent = '⚠ ' + e.message;
+    history.push({ de, en: '', time: new Date() });
+  }
+  $('count').textContent = history.length + ' sentences';
+  scrollDown();
+}
+
+function showInterim(de) {
+  if (!liveEl) liveEl = makeLine();
+  liveEl.querySelector('.de').textContent = de;
+  scrollDown();
+  // Only translate partial speech with the on-device engine, to spare the online quota.
+  if (engine !== 'builtin') return;
+  clearTimeout(liveTimer);
+  const el = liveEl;
+  liveTimer = setTimeout(async () => {
+    try { const en = await translate(de); if (el.classList.contains('live')) el.querySelector('.en').textContent = en; } catch {}
+  }, 250);
+}
+
+// ---------- Speech recognition ----------
+function startRec() {
+  rec = new SR();
+  rec.lang = 'de-DE';
+  // Android Chrome duplicates results in continuous mode; use short sessions there instead.
+  rec.continuous = !isAndroid;
+  rec.interimResults = true;
+
+  rec.onresult = e => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const r = e.results[i];
+      if (r.isFinal) finalize(r[0].transcript.trim());
+      else interim += r[0].transcript;
+    }
+    if (interim.trim()) showInterim(interim.trim());
+  };
+  rec.onerror = e => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      note('Microphone access was blocked. Click the 🔒 icon in the address bar, allow the microphone, then press Start again.');
+      stop();
+    } else if (e.error === 'network') {
+      note('Speech recognition needs an internet connection.');
+    } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
+      console.warn('Recognition error:', e.error);
+    }
+  };
+  // Chrome ends sessions after silence or ~60s; restart automatically while listening.
+  rec.onend = () => { if (listening) setTimeout(() => { try { rec.start(); } catch {} }, 150); };
+  rec.start();
+}
+
+async function start() {
+  note('');
+  listening = true;
+  $('toggle').textContent = '■ Stop';
+  $('toggle').classList.add('on');
+  $('status').classList.add('listening');
+  setStatus('Listening…');
+  startRec();
+  if (!translator) initTranslator(true);
+}
+function stop() {
+  listening = false;
+  try { rec && rec.stop(); } catch {}
+  $('toggle').textContent = '▶ Start';
+  $('toggle').classList.remove('on');
+  $('status').classList.remove('listening');
+  setStatus('Idle');
+}
+
+// ---------- Controls ----------
+$('toggle').onclick = () => listening ? stop() : start();
+$('quota').onclick = () => {
+  const v = prompt('Optional: enter your email to raise the free MyMemory translation limit from 5,000 to 50,000 characters per day. It is only sent to MyMemory.', quotaEmail);
+  if (v === null) return;
+  quotaEmail = v.trim();
+  try { localStorage.setItem('lt-email', quotaEmail); } catch {}
+};
+$('clear').onclick = () => { $('feed').innerHTML = ''; history.length = 0; liveEl = null; $('count').textContent = ''; };
+$('size').onchange = e => { document.body.style.setProperty('--size', e.target.value); try { localStorage.setItem('lt-size', e.target.value); } catch {} };
+$('showDe').onclick = () => {
+  const hidden = document.body.classList.toggle('hide-de');
+  $('showDe').textContent = hidden ? 'Show German' : 'Hide German';
+};
+$('save').onclick = () => {
+  if (!history.length) return;
+  const txt = history.map(h => `[${h.time.toLocaleTimeString()}]\nDE: ${h.de}\nEN: ${h.en}\n`).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain' }));
+  a.download = `transcript-${new Date().toISOString().slice(0, 16).replace(':', '-')}.txt`;
+  a.click();
+};
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && e.target.tagName !== 'SELECT') { e.preventDefault(); $('toggle').click(); }
+});
+
+try { const s = localStorage.getItem('lt-size'); if (s) { $('size').value = s; document.body.style.setProperty('--size', s); } } catch {}
+
+if (!SR) {
+  note('This browser does not support live speech recognition. Please open this page in <b>Google Chrome</b> or <b>Microsoft Edge</b>.');
+  $('toggle').disabled = true;
+}
+initTranslator();
+</script>
+</body>
+</html>
