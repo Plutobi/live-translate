@@ -59,6 +59,13 @@
     max-width: 900px; margin: 0 auto 14px; padding: 10px 14px; border-radius: 8px;
     background: var(--accent-soft); font-size: 14px; display: none;
   }
+  dialog { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); color: var(--text); width: min(460px, calc(100vw - 32px)); }
+  dialog::backdrop { background: rgba(0,0,0,.5); }
+  dialog h2 { font-size: 17px; margin: 0 0 12px; }
+  dialog label { display: block; margin-bottom: 14px; font-size: 14px; }
+  dialog small { color: var(--muted); }
+  dialog input { display: block; width: 100%; margin-top: 4px; font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  dialog .row { display: flex; justify-content: flex-end; gap: 8px; }
   footer {
     padding: 8px 16px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border);
     background: var(--panel); display: flex; gap: 12px; flex-wrap: wrap;
@@ -81,7 +88,7 @@
   </select>
   <button id="showDe" title="Show/hide the German original">Hide German</button>
   <button id="save" title="Download transcript">Save</button>
-  <button id="quota" title="Add an email to raise the free translation limit">Quota</button>
+  <button id="settings" title="Translation settings">Settings</button>
   <button id="clear">Clear</button>
   <button id="toggle">▶ Start</button>
   <div class="status" id="status"><span class="dot"></span><span id="statusText">Idle</span></div>
@@ -97,6 +104,18 @@
   </div>
 </main>
 
+<dialog id="dlg">
+  <form method="dialog">
+    <h2>Translation settings</h2>
+    <label>Google Translate API key <small>(recommended for long classes — free tier covers ~500,000 characters/month)</small>
+      <input id="gkey" type="password" autocomplete="off" placeholder="AIza…"></label>
+    <label>Email for MyMemory <small>(used when no key is set — raises the free limit from 5,000 to 50,000 characters/day)</small>
+      <input id="email" type="email" autocomplete="off" placeholder="you@example.com"></label>
+    <p><small>Saved only in this browser.</small></p>
+    <div class="row"><button value="cancel">Cancel</button><button value="save">Save</button></div>
+  </form>
+</dialog>
+
 <footer>
   <span>Engine: <b id="engine">checking…</b></span>
   <span id="count"></span>
@@ -106,8 +125,11 @@
 const $ = id => document.getElementById(id);
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const isAndroid = /Android/i.test(navigator.userAgent);
-let quotaEmail = '';
-try { quotaEmail = localStorage.getItem('lt-email') || ''; } catch {}
+const store = {
+  get(k, d = '') { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+let quotaEmail = store.get('lt-email'), googleKey = store.get('lt-gkey');
 
 let listening = false, rec = null, liveEl = null, liveTimer = null;
 let translator = null, engine = 'mymemory';
@@ -135,9 +157,12 @@ async function initTranslator(fromGesture = false) {
       }
     } catch (e) { console.warn('Built-in translator unavailable:', e); }
   }
-  $('engine').textContent = engine === 'builtin'
-    ? 'Chrome on-device translator'
-    : 'MyMemory online API (free daily limit — tap Quota to raise it)';
+  showEngine();
+}
+function showEngine() {
+  $('engine').textContent = engine === 'builtin' ? 'Chrome on-device translator'
+    : googleKey ? 'Google Translate API'
+    : 'MyMemory online API (small free daily limit — see Settings)';
 }
 
 const cache = new Map();
@@ -148,17 +173,44 @@ async function translate(text) {
   let out;
   if (engine === 'builtin') {
     out = await translator.translate(text);
+  } else if (googleKey) {
+    const r = await fetch('https://translation.googleapis.com/language/translate/v2?key=' + encodeURIComponent(googleKey), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ q: text, source: 'de', target: 'en', format: 'text' }),
+    });
+    const j = await r.json();
+    if (j.error) throw new Error('Google: ' + j.error.message);
+    out = j.data.translations[0].translatedText;
   } else {
     const url = 'https://api.mymemory.translated.net/get?langpair=de|en&q=' + encodeURIComponent(text.slice(0, 480))
       + (quotaEmail ? '&de=' + encodeURIComponent(quotaEmail) : '');
     const r = await fetch(url);
     const j = await r.json();
-    if (j.quotaFinished) throw new Error('Daily free translation limit reached — tap Quota to raise it');
+    if (j.quotaFinished) throw new Error('Daily free translation limit reached — add a Google key in Settings');
     if (j.responseStatus != 200) throw new Error(j.responseDetails || 'Translation failed');
     out = j.responseData.translatedText;
   }
   cache.set(text, out);
   return out;
+}
+
+// ---------- Transcript ----------
+function saveHistory() {
+  $('count').textContent = history.length ? history.length + ' sentences' : '';
+  store.set('lt-history', JSON.stringify(history));
+}
+function restoreHistory() {
+  let saved = [];
+  try { saved = JSON.parse(store.get('lt-history', '[]')); } catch {}
+  for (const h of saved) {
+    const el = makeLine();
+    el.classList.remove('live');
+    el.querySelector('.en').textContent = h.en || '⚠ not translated';
+    el.querySelector('.de').textContent = h.de;
+    history.push({ ...h, time: new Date(h.time) });
+  }
+  saveHistory();
+  $('main').scrollTop = $('main').scrollHeight;
 }
 
 // ---------- UI lines ----------
@@ -191,7 +243,7 @@ async function finalize(de) {
     el.querySelector('.en').textContent = '⚠ ' + e.message;
     history.push({ de, en: '', time: new Date() });
   }
-  $('count').textContent = history.length + ' sentences';
+  saveHistory();
   scrollDown();
 }
 
@@ -209,66 +261,116 @@ function showInterim(de) {
 }
 
 // ---------- Speech recognition ----------
-function startRec() {
-  rec = new SR();
-  rec.lang = 'de-DE';
-  // Android Chrome duplicates results in continuous mode; use short sessions there instead.
-  rec.continuous = !isAndroid;
-  rec.interimResults = true;
+// Chrome ends a recognition session after silence, ~60s, or a network hiccup.
+// For hour-long listening we restart on every end, plus a watchdog in case an end is missed.
+let recActive = false, lastRestart = 0, startedAt = 0, clockTimer = null, wakeLock = null;
 
-  rec.onresult = e => {
+function makeRec() {
+  const r = new SR();
+  r.lang = 'de-DE';
+  // Android Chrome duplicates results in continuous mode; use short sessions there instead.
+  r.continuous = !isAndroid;
+  r.interimResults = true;
+
+  r.onstart = () => { recActive = true; };
+  r.onresult = e => {
     let interim = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
-      const r = e.results[i];
-      if (r.isFinal) finalize(r[0].transcript.trim());
-      else interim += r[0].transcript;
+      const res = e.results[i];
+      if (res.isFinal) { if (res[0].transcript.trim()) finalize(res[0].transcript.trim()); }
+      else interim += res[0].transcript;
     }
     if (interim.trim()) showInterim(interim.trim());
   };
-  rec.onerror = e => {
+  r.onerror = e => {
     if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-      note('Microphone access was blocked. Click the 🔒 icon in the address bar, allow the microphone, then press Start again.');
+      note('Microphone access was blocked. Tap the 🔒 icon in the address bar, allow the microphone, then press Start again.');
       stop();
     } else if (e.error === 'network') {
-      note('Speech recognition needs an internet connection.');
+      note('Connection problem — retrying automatically…');
     } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
       console.warn('Recognition error:', e.error);
     }
   };
-  // Chrome ends sessions after silence or ~60s; restart automatically while listening.
-  rec.onend = () => { if (listening) setTimeout(() => { try { rec.start(); } catch {} }, 150); };
-  rec.start();
+  r.onend = () => {
+    recActive = false;
+    // Keep an unfinished sentence rather than losing it when a session ends mid-phrase.
+    if (liveEl) finalize(liveEl.querySelector('.de').textContent);
+    if (listening) restart();
+  };
+  return r;
 }
 
-async function start() {
+function restart() {
+  if (!listening || recActive) return;
+  const wait = Math.max(0, 300 - (Date.now() - lastRestart));
+  setTimeout(() => {
+    if (!listening || recActive) return;
+    lastRestart = Date.now();
+    try { rec.start(); }
+    catch { rec = makeRec(); try { rec.start(); } catch {} }
+  }, wait);
+}
+
+async function keepAwake() {
+  try { if ('wakeLock' in navigator && document.visibilityState === 'visible') wakeLock = await navigator.wakeLock.request('screen'); }
+  catch (e) { console.warn('Wake lock failed:', e); }
+}
+
+function tick() {
+  const sec = Math.floor((Date.now() - startedAt) / 1000);
+  const t = `${Math.floor(sec / 3600)}:${String(Math.floor(sec / 60) % 60).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
+  setStatus(`Listening · ${t}`);
+  if (!recActive && Date.now() - lastRestart > 4000) restart(); // watchdog
+}
+
+function start() {
   note('');
   listening = true;
+  startedAt = Date.now();
   $('toggle').textContent = '■ Stop';
   $('toggle').classList.add('on');
   $('status').classList.add('listening');
-  setStatus('Listening…');
-  startRec();
+  rec = makeRec();
+  lastRestart = Date.now();
+  rec.start();
+  keepAwake();
+  clockTimer = setInterval(tick, 1000);
+  tick();
   if (!translator) initTranslator(true);
 }
 function stop() {
   listening = false;
+  clearInterval(clockTimer);
   try { rec && rec.stop(); } catch {}
+  try { wakeLock && wakeLock.release(); } catch {}
+  wakeLock = null;
   $('toggle').textContent = '▶ Start';
   $('toggle').classList.remove('on');
   $('status').classList.remove('listening');
   setStatus('Idle');
 }
 
+// Wake locks are dropped when the tab is hidden; re-acquire and resume when it's visible again.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && listening) { keepAwake(); restart(); }
+});
+
 // ---------- Controls ----------
 $('toggle').onclick = () => listening ? stop() : start();
-$('quota').onclick = () => {
-  const v = prompt('Optional: enter your email to raise the free MyMemory translation limit from 5,000 to 50,000 characters per day. It is only sent to MyMemory.', quotaEmail);
-  if (v === null) return;
-  quotaEmail = v.trim();
-  try { localStorage.setItem('lt-email', quotaEmail); } catch {}
+$('settings').onclick = () => { $('gkey').value = googleKey; $('email').value = quotaEmail; $('dlg').showModal(); };
+$('dlg').addEventListener('close', () => {
+  if ($('dlg').returnValue !== 'save') return;
+  googleKey = $('gkey').value.trim(); quotaEmail = $('email').value.trim();
+  store.set('lt-gkey', googleKey); store.set('lt-email', quotaEmail);
+  cache.clear();
+  showEngine();
+});
+$('clear').onclick = () => {
+  if (history.length && !confirm('Clear the whole transcript?')) return;
+  $('feed').innerHTML = ''; history.length = 0; liveEl = null; saveHistory();
 };
-$('clear').onclick = () => { $('feed').innerHTML = ''; history.length = 0; liveEl = null; $('count').textContent = ''; };
-$('size').onchange = e => { document.body.style.setProperty('--size', e.target.value); try { localStorage.setItem('lt-size', e.target.value); } catch {} };
+$('size').onchange = e => { document.body.style.setProperty('--size', e.target.value); store.set('lt-size', e.target.value); };
 $('showDe').onclick = () => {
   const hidden = document.body.classList.toggle('hide-de');
   $('showDe').textContent = hidden ? 'Show German' : 'Hide German';
@@ -282,13 +384,15 @@ $('save').onclick = () => {
   a.click();
 };
 document.addEventListener('keydown', e => {
-  if (e.code === 'Space' && e.target.tagName !== 'SELECT') { e.preventDefault(); $('toggle').click(); }
+  if (e.code === 'Space' && !['SELECT', 'INPUT', 'BUTTON'].includes(e.target.tagName) && !$('dlg').open) { e.preventDefault(); $('toggle').click(); }
 });
 
-try { const s = localStorage.getItem('lt-size'); if (s) { $('size').value = s; document.body.style.setProperty('--size', s); } } catch {}
+const savedSize = store.get('lt-size');
+if (savedSize) { $('size').value = savedSize; document.body.style.setProperty('--size', savedSize); }
+restoreHistory();
 
 if (!SR) {
-  note('This browser does not support live speech recognition. Please open this page in <b>Google Chrome</b> or <b>Microsoft Edge</b>.');
+  note('This browser does not support live speech recognition. Please open this page in <b>Chrome</b>, <b>Edge</b>, or <b>Safari</b>.');
   $('toggle').disabled = true;
 }
 initTranslator();
