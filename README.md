@@ -1,6 +1,8 @@
 # Live Übersetzer — German → English
 
-A live captioning web app: it listens to German speech through your microphone and shows English translations as people speak.
+A live captioning web app for **class lectures, conferences and conversations**: it listens to German speech through your microphone and shows English translations as people speak.
+
+**Open the app:** https://plutobi.github.io/live-translate/
 
 ## Use it
 Open the GitHub Pages link in **Chrome** (Android / desktop), **Edge**, or **Safari** (iPhone), tap **Start**, and allow microphone access.
