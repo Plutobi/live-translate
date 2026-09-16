@@ -15,18 +15,19 @@
     --muted: #7a8599; --border: #e4e8ef; --blue: #1073e6; --blue-soft: rgba(16,115,230,.1);
     --red: #ef4d5d; --red-dark: #d93446; --red-ring: rgba(239,77,93,.14);
     --shadow: 0 2px 8px rgba(29,42,68,.08);
+    color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --bg: #0f141d; --surface: #171e2a; --card: #1c2433; --text: #c9d2e3; --strong: #f1f4fa;
       --muted: #8591a7; --border: #273044; --blue: #4d9bff; --blue-soft: rgba(77,155,255,.14);
-      --red-ring: rgba(239,77,93,.2); --shadow: 0 2px 8px rgba(0,0,0,.35);
+      --red-ring: rgba(239,77,93,.2); --shadow: 0 2px 8px rgba(0,0,0,.35); color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
     --bg: #0f141d; --surface: #171e2a; --card: #1c2433; --text: #c9d2e3; --strong: #f1f4fa;
     --muted: #8591a7; --border: #273044; --blue: #4d9bff; --blue-soft: rgba(77,155,255,.14);
-    --red-ring: rgba(239,77,93,.2); --shadow: 0 2px 8px rgba(0,0,0,.35);
+    --red-ring: rgba(239,77,93,.2); --shadow: 0 2px 8px rgba(0,0,0,.35); color-scheme: dark;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -84,32 +85,65 @@
   .sizes button[aria-pressed="true"] { background: var(--card); color: var(--blue); box-shadow: var(--shadow); }
 
   /* Split panes: German (live) | English — stacked on phones */
-  main.wrap { max-width: 1100px; }
+  main.wrap { max-width: 1400px; }
   main { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 14px; }
-  .panes { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .panes { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   body[data-mode="de"] #paneEn, body[data-mode="en"] #paneDe { display: none; }
   body:not([data-mode="both"]) .panes { grid-template-columns: 1fr; grid-template-rows: 1fr; }
   .pane { min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; }
-  .pane-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .pane-head { display: flex; align-items: center; gap: 8px; padding: 14px 22px 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
   .pane-head .flag { width: 20px; height: 14px; border-radius: 3px; box-shadow: 0 0 0 1px var(--border); }
   .live-tag { margin-left: auto; display: none; align-items: center; gap: 6px; color: var(--red); }
   .live-tag::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--red); animation: blink 1.2s infinite; }
   body.listening .live-tag { display: inline-flex; }
   @keyframes blink { 50% { opacity: .25; } }
-  .pane-body { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 16px 14px; -webkit-overflow-scrolling: touch; }
+  .pane-body { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  .pane-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 22px 18px; -webkit-overflow-scrolling: touch; }
   .pane-body:empty::before { content: attr(data-placeholder); color: var(--muted); font-size: 15px; }
-  .s { margin: 0 0 .45em; font-size: var(--size, 22px); line-height: 1.45; color: var(--strong); font-weight: 500; }
+  .s { margin: 0 0 .7em; font-size: var(--size, 22px); line-height: 1.45; color: var(--strong); font-weight: 500; }
+  #feedDe .s { font-size: calc(var(--size, 22px) * .8); }
   #feedDe .s.live { color: var(--blue); }
+  /* Translation is what you read — give it the larger share of the space. */
+  body[data-mode="both"] .panes { grid-template-columns: 2fr 3fr; }
   #feedEn .s.pending { color: var(--muted); }
   .note { margin: 0 0 10px; padding: 10px 14px; border-radius: 14px; background: var(--red-ring); color: var(--strong); font-size: 14px; display: none; }
   body.has-lines .langs { display: none; }
 
+  /* Once captions are showing, collapse the header and dock to give the panes the room. */
+  body.has-lines .dock { padding-top: 2px; }
+  body.has-lines .bubble { margin-bottom: 6px; padding: 3px 12px; font-size: 13px; }
+  @media (min-width: 701px) {
+    /* Status sits beside the mic instead of above it. */
+    body.has-lines .bubble { grid-column: 1; grid-row: 1; justify-self: end; margin: 0 22px 0 0; padding: 4px 12px; }
+    body.has-lines .bubble::after { left: auto; right: -6px; bottom: auto; top: 50%; transform: translateY(-50%); border: 6px solid transparent; border-right: 0; border-left-color: var(--surface); }
+    body.has-lines .side:not(.right) { grid-column: 1; grid-row: 1; }
+  }
+  body.has-lines .mic { width: 72px; height: 72px; box-shadow: 0 0 0 7px var(--red-ring), 0 4px 12px rgba(217,52,70,.3); }
+  body.has-lines .mic svg { width: 30px; height: 30px; }
+  body.has-lines .mic.on .i-stop { width: 24px; height: 24px; }
+  body.has-lines .meta { margin-top: 8px; }
+  body.has-lines main { margin-top: 10px; }
+  @media (min-width: 701px) {
+    body.has-lines header.wrap { max-width: 1400px; display: flex; align-items: center; gap: 16px; padding-top: 10px; }
+    body.has-lines .topbar { display: contents; }
+    body.has-lines .seg { order: 2; flex: 0 1 420px; margin-left: auto; padding: 3px; }
+    body.has-lines .seg button { flex-direction: row; justify-content: center; gap: 6px; padding: 6px 10px; font-size: 14px; }
+    body.has-lines .opts { order: 3; margin: 0; }
+    body.has-lines .opts > span { display: none; }
+    body.has-lines #settings { order: 4; }
+  }
+
   @media (max-width: 700px) {
-    body[data-mode="both"] .panes { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; gap: 10px; }
+    body[data-mode="both"] .panes { grid-template-columns: 1fr; grid-template-rows: 2fr 3fr; gap: 10px; }
+    body.has-lines header.wrap { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+    body.has-lines .topbar { grid-column: 1 / -1; padding-top: 10px; padding-bottom: 0; }
+    body.has-lines .seg { padding: 3px; }
+    body.has-lines .opts { margin: 0; }
+    body.has-lines .opts > span { display: none; }
+    body.has-lines .sizes button { width: 30px; }
     .s { font-size: calc(var(--size, 22px) * .85); }
     body.has-lines .seg button svg { display: none; }
-    body.has-lines .seg button { padding: 6px; }
-    body.has-lines .opts { margin-top: 10px; }
+    body.has-lines .seg button { padding: 6px 2px; font-size: 13px; }
   }
 
   /* Bottom dock */
