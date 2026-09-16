@@ -5,11 +5,27 @@ A live captioning web app for **class lectures, conferences and conversations**:
 **Open the app:** https://plutobi.github.io/live-translate/
 
 ## Use it
-Open the GitHub Pages link in **Chrome** (Android / desktop), **Edge**, or **Safari** (iPhone), tap **Start**, and allow microphone access.
+Open the link in **Chrome** (Android / desktop), **Edge**, or **Safari** (iPhone) and allow microphone access.
 
-- **Text size / Hide German** — adjust the display.
-- **Save** — download the transcript (German + English) as a text file.
-- **Settings** — add a Google Translate API key (recommended for long classes) or an email for MyMemory's higher free limit.
+**Lectures & conferences** — choose *Transcribe*, *Translate* or *Both* and tap the red mic. German appears live; English follows a few seconds behind.
+
+**Conversations** — choose *Talk*. Tap **Deutsch** when the other person speaks German, or **English** when you speak. Each message is translated and read aloud (toggle *Read aloud*); German translations are shown large so you can show your screen.
+
+- **UK / US** — British or American English (spelling like colour/color and a few words like flat/apartment).
+- **Text size**, **Save** (download transcript or conversation), **Clear**, **Settings** (Google key / MyMemory email).
+- The line under the mic shows how much free translation you have left.
+
+## How long can I listen?
+There is no time limit in the app — it keeps restarting speech recognition for as long as you like. The real limit is the free translation quota (German speech is roughly 850 characters per minute):
+
+| Translation engine | Free allowance | About |
+|---|---|---|
+| MyMemory (default) | 5,000 characters/day | ~6 minutes a day |
+| MyMemory + email in Settings | 50,000 characters/day | ~1 hour a day |
+| Google Cloud Translation key | 500,000 characters/month | ~10 hours a month |
+| Chrome on a computer (on-device) | unlimited | no limit |
+
+Speech recognition itself is free. Keep the phone plugged in and the app on screen for long sessions.
 
 ## Listening for a whole class (~1 hour)
 - Keep the page open and in front — the app keeps the screen awake while listening.

@@ -155,10 +155,59 @@
     body.has-lines .opts { margin: 0; }
     body.has-lines .opts > span { display: none; }
     body.has-lines .sizes button { width: 30px; }
+    body.has-lines[data-mode="talk"] .seg, body.has-lines[data-mode="talk"] .opts { grid-column: 1 / -1; }
     .s { font-size: calc(var(--size, 22px) * .85); }
     body.has-lines .seg button svg { display: none; }
     body.has-lines .seg button { padding: 6px 2px; font-size: 13px; }
   }
+
+  /* Two-way conversation */
+  body[data-mode="talk"] .panes { display: none; }
+  .chat { display: none; flex: 1; min-height: 0; overflow-y: auto; flex-direction: column; gap: 12px; padding: 4px 2px 12px; }
+  body[data-mode="talk"] .chat { display: flex; }
+  .chat:empty::before { content: attr(data-placeholder); margin: auto; max-width: 360px; text-align: center; color: var(--muted); }
+  .msg { max-width: min(82%, 640px); padding: 10px 16px 12px; border-radius: 20px; background: var(--surface); border: 1px solid var(--border); }
+  .msg.de { align-self: flex-start; border-bottom-left-radius: 6px; }
+  .msg.en { align-self: flex-end; background: var(--blue-soft); border-color: rgba(16,115,230,.25); border-bottom-right-radius: 6px; }
+  .who { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+  .who .flag { width: 18px; height: 12px; border-radius: 2px; box-shadow: 0 0 0 1px var(--border); }
+  .replay { margin-left: auto; border: 0; background: transparent; color: var(--muted); padding: 2px; display: grid; }
+  .replay svg { width: 16px; height: 16px; }
+  .replay:hover { color: var(--blue); }
+  .msg .tr { font-size: var(--size, 22px); line-height: 1.4; font-weight: 600; color: var(--strong); }
+  .msg .tr:empty { display: none; }
+  .msg .orig { font-size: calc(var(--size, 22px) * .68); color: var(--muted); margin-top: 4px; }
+  .msg.live .orig { color: var(--blue); }
+  .msg.pending .tr { color: var(--muted); }
+  .arrow .i-two, body[data-mode="talk"] .arrow .i-one { display: none; }
+  body[data-mode="talk"] .arrow .i-two { display: block; }
+  .speak { display: none; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 5px 12px; color: var(--muted); font-size: 13px; font-weight: 600; }
+  .speak svg { width: 16px; height: 16px; }
+  .speak[aria-pressed="true"] { color: var(--blue); background: var(--blue-soft); border-color: transparent; }
+  body[data-mode="talk"] .speak { display: inline-flex; }
+  .opts { gap: 10px; }
+  .opts .grow { flex: 1; }
+
+  .talk-mics { display: none; gap: 28px; align-items: flex-end; }
+  body[data-mode="talk"] #toggle { display: none; }
+  body[data-mode="talk"] .talk-mics { display: flex; }
+  .tmic { display: flex; flex-direction: column; align-items: center; gap: 8px; border: 0; background: transparent; padding: 0; color: var(--strong); font-size: 13px; font-weight: 600; }
+  .tmic .disc { position: relative; width: 76px; height: 76px; border-radius: 50%; display: grid; place-items: center; color: #fff;
+    background: linear-gradient(180deg, var(--red), var(--red-dark)); box-shadow: 0 0 0 8px var(--red-ring); transition: transform .15s; }
+  .tmic.en .disc { background: linear-gradient(180deg, #2b8af0, #1060c9); box-shadow: 0 0 0 8px var(--blue-soft); }
+  .tmic:hover .disc { transform: scale(1.04); }
+  .tmic .disc > svg { width: 30px; height: 30px; }
+  .tmic .badge { position: absolute; right: -2px; bottom: -2px; display: flex; border-radius: 4px; overflow: hidden; box-shadow: 0 0 0 2px var(--bg); }
+  .tmic .badge .flag { width: 24px; height: 16px; display: block; }
+  .tmic.on .disc { animation: ring 1.6s ease-out infinite; }
+  .tmic.en.on .disc { animation-name: ring-blue; }
+  .tmic:disabled { opacity: .4; cursor: not-allowed; }
+  @keyframes ring-blue {
+    0% { box-shadow: 0 0 0 0 rgba(16,115,230,.45); }
+    100% { box-shadow: 0 0 0 22px rgba(16,115,230,0); }
+  }
+  body.has-lines .tmic .disc { width: 64px; height: 64px; }
+  body.has-lines .tmic .disc > svg { width: 26px; height: 26px; }
 
   /* Bottom dock */
   .dock { padding-top: 6px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
@@ -240,18 +289,24 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h9M8.5 3v2M11 5c-.8 3.6-3.2 6.6-6.5 8.5M6 8.5c1.2 2 3 3.6 5 4.5M12.5 21l4-10 4 10M14 17h5"/></svg>Translate</button>
     <button data-mode="both" aria-pressed="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 10h10M7 14h6"/></svg>Both</button>
+    <button data-mode="talk" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h11v7H8l-3 3v-3H3z"/><path d="M10 15v2h6l3 3v-3h2v-7h-4"/></svg>Talk</button>
   </div>
 
   <div class="langs">
     <div class="lang"><svg class="flag" viewBox="0 0 30 20" aria-hidden="true"><rect width="30" height="7" fill="#000"/><rect y="6.6" width="30" height="6.8" fill="#dd0000"/><rect y="13.3" width="30" height="6.7" fill="#ffce00"/></svg>German<small>Speaker</small></div>
     <div class="arrow" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      <svg class="i-one" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      <svg class="i-two" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4"/></svg>
     </div>
     <div class="lang"><span class="flags"><span class="f-gb"><svg class="flag" viewBox="0 0 60 30" aria-hidden="true"><clipPath id="gbc"><path d="M0 0v30h60V0z"/></clipPath><g clip-path="url(#gbc)"><path d="M0 0v30h60V0z" fill="#012169"/><path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0l60 30m0-30L0 30" stroke="#C8102E" stroke-width="3"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/></g></svg></span><span class="f-us"><svg class="flag" viewBox="0 0 38 20" aria-hidden="true"><rect width="38" height="20" fill="#b22234"/><path d="M0 2.3h38M0 5.4h38M0 8.5h38M0 11.5h38M0 14.6h38M0 17.7h38" stroke="#fff" stroke-width="1.55"/><rect width="15.2" height="10.8" fill="#3c3b6e"/></svg></span></span>English<span class="variant" role="group" aria-label="English variant"><button data-v="GB" aria-pressed="true">UK</button><button data-v="US" aria-pressed="false">US</button></span></div>
   </div>
 
   <div class="opts">
     <span>Text size</span>
+    <span class="grow"></span>
+    <button class="speak" id="speak" aria-pressed="true" title="Read translations aloud">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>Read aloud</button>
     <div class="sizes" id="size" role="group" aria-label="Text size">
       <button data-size="18px" aria-pressed="false" style="font-size:12px">A</button>
       <button data-size="22px" aria-pressed="true" style="font-size:14px">A</button>
@@ -273,6 +328,7 @@
       <div class="pane-body" id="feedEn" data-placeholder="The English translation appears here."></div>
     </section>
   </div>
+  <section class="chat" id="chat" data-placeholder="Tap 🇩🇪 Deutsch when the other person speaks German, or English when you speak. Each message is translated and read aloud."></section>
 </main>
 
 <div class="dock wrap">
@@ -287,6 +343,12 @@
       <svg class="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></svg>
       <svg class="i-stop" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>
     </button>
+    <div class="talk-mics">
+      <button class="tmic de" id="talkDe" aria-label="German speaker: tap and speak German">
+        <span class="disc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></svg><span class="badge"><svg class="flag" viewBox="0 0 30 20" aria-hidden="true"><rect width="30" height="7" fill="#000"/><rect y="6.6" width="30" height="6.8" fill="#dd0000"/><rect y="13.3" width="30" height="6.7" fill="#ffce00"/></svg></span></span>Deutsch</button>
+      <button class="tmic en" id="talkEn" aria-label="You: tap and speak English">
+        <span class="disc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></svg><span class="badge"><span class="flags"><span class="f-gb"><svg class="flag" viewBox="0 0 60 30" aria-hidden="true"><rect width="60" height="30" fill="#012169"/><path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0l60 30m0-30L0 30" stroke="#C8102E" stroke-width="3"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/></svg></span><span class="f-us"><svg class="flag" viewBox="0 0 38 20" aria-hidden="true"><rect width="38" height="20" fill="#b22234"/><path d="M0 2.3h38M0 5.4h38M0 8.5h38M0 11.5h38M0 14.6h38M0 17.7h38" stroke="#fff" stroke-width="1.55"/><rect width="15.2" height="10.8" fill="#3c3b6e"/></svg></span></span></span></span>English</button>
+    </div>
     <div class="side right">
       <button class="round" id="save" title="Download transcript" aria-label="Download transcript">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
@@ -320,6 +382,7 @@ let quotaEmail = store.get('lt-email'), googleKey = store.get('lt-gkey');
 
 let listening = false, rec = null, liveEl = null, liveTimer = null;
 let translator = null, engine = 'mymemory';
+const translators = {}; // Chrome on-device translators by pair, e.g. 'de-en'
 const history = []; // {de, en, time}
 let variant = store.get('lt-variant', 'GB'); // 'GB' | 'US'
 
@@ -333,45 +396,78 @@ const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeo
 
 // fromGesture: creating a translator that needs a download requires a user click.
 async function initTranslator(fromGesture = false) {
-  if ('Translator' in self && !translator) {
-    try {
-      const avail = await withTimeout(Translator.availability({ sourceLanguage: 'de', targetLanguage: 'en' }), 3000);
-      if (avail === 'available' || (fromGesture && avail !== 'unavailable')) {
-        translator = await Translator.create({
-          sourceLanguage: 'de', targetLanguage: 'en',
-          monitor(m) { m.addEventListener('downloadprogress', e => setStatus(`Downloading language pack ${Math.round(e.loaded * 100)}%`)); }
-        });
-        engine = 'builtin';
-      }
-    } catch (e) { console.warn('Built-in translator unavailable:', e); }
+  if ('Translator' in self) {
+    for (const [from, to] of [['de', 'en'], ['en', 'de']]) {
+      const pair = `${from}-${to}`;
+      if (translators[pair]) continue;
+      try {
+        const avail = await withTimeout(Translator.availability({ sourceLanguage: from, targetLanguage: to }), 3000);
+        if (avail === 'available' || (fromGesture && avail !== 'unavailable')) {
+          translators[pair] = await Translator.create({
+            sourceLanguage: from, targetLanguage: to,
+            monitor(m) { m.addEventListener('downloadprogress', e => setStatus(`Downloading language pack ${Math.round(e.loaded * 100)}%`)); }
+          });
+        }
+      } catch (e) { console.warn(`Built-in ${pair} translator unavailable:`, e); }
+    }
+    translator = translators['de-en'] || null;
+    if (translator) engine = 'builtin';
   }
   showEngine();
 }
+
+// ---------- Usage meter ----------
+// Online engines have free quotas; track what we send so the user knows how long they can keep going.
+const CHARS_PER_MIN = 850; // typical German speech: ~130 words/min
+let usage = {};
+try { usage = JSON.parse(store.get('lt-usage', '{}')); } catch {}
+function addUsage(n) {
+  const day = new Date().toISOString().slice(0, 10), month = day.slice(0, 7);
+  if (usage.day !== day) { usage.day = day; usage.mm = 0; }
+  if (usage.month !== month) { usage.month = month; usage.g = 0; }
+  if (googleKey) usage.g = (usage.g || 0) + n; else usage.mm = (usage.mm || 0) + n;
+  store.set('lt-usage', JSON.stringify(usage));
+  showEngine();
+}
+function quota() {
+  const day = new Date().toISOString().slice(0, 10), month = day.slice(0, 7);
+  if (googleKey) return { used: usage.month === month ? usage.g || 0 : 0, limit: 500000, per: 'this month' };
+  return { used: usage.day === day ? usage.mm || 0 : 0, limit: quotaEmail ? 50000 : 5000, per: 'today' };
+}
+const fmtNum = n => n >= 10000 ? Math.round(n / 1000) + 'k' : n.toLocaleString('en');
 function showEngine() {
-  $('engine').textContent = engine === 'builtin' ? 'Chrome on-device translator'
-    : googleKey ? 'Google Translate API'
-    : 'MyMemory · free daily limit (see Settings)';
+  if (engine === 'builtin') { $('engine').textContent = 'Chrome on-device translator · no limit'; return; }
+  const q = quota();
+  const left = Math.max(0, q.limit - q.used);
+  const mins = Math.floor(left / CHARS_PER_MIN);
+  const time = mins >= 120 ? `~${Math.floor(mins / 60)} h` : `~${mins} min`;
+  $('engine').textContent = `${googleKey ? 'Google' : 'MyMemory'} · ${fmtNum(q.used)} / ${fmtNum(q.limit)} characters ${q.per} · ${time} of speech left`
+    + (googleKey || quotaEmail ? '' : ' (raise it in Settings)');
 }
 
 const cache = new Map();
-async function translateRaw(text) {
+async function translateRaw(text, from = 'de', to = 'en') {
   text = text.trim();
   if (!text) return '';
-  const key = variant + '|' + text;
+  const key = `${from}>${to}|${variant}|${text}`;
   if (cache.has(key)) return cache.get(key);
   let out;
-  if (engine === 'builtin') {
-    out = await translator.translate(text);
+  const local = translators[`${from}-${to}`];
+  if (local) {
+    out = await local.translate(text);
   } else if (googleKey) {
+    addUsage(text.length);
     const r = await fetch('https://translation.googleapis.com/language/translate/v2?key=' + encodeURIComponent(googleKey), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ q: text, source: 'de', target: 'en', format: 'text' }),
+      body: JSON.stringify({ q: text, source: from, target: to, format: 'text' }),
     });
     const j = await r.json();
     if (j.error) throw new Error('Google: ' + j.error.message);
     out = j.data.translations[0].translatedText;
   } else {
-    const url = `https://api.mymemory.translated.net/get?langpair=de|en-${variant}&q=` + encodeURIComponent(text.slice(0, 480))
+    addUsage(text.length);
+    const pair = from === 'de' ? `de|en-${variant}` : `en-${variant}|de`;
+    const url = `https://api.mymemory.translated.net/get?langpair=${pair}&q=` + encodeURIComponent(text.slice(0, 480))
       + (quotaEmail ? '&de=' + encodeURIComponent(quotaEmail) : '');
     const r = await fetch(url);
     const j = await r.json();
@@ -442,6 +538,13 @@ function setVariant(v) {
   document.body.dataset.variant = v;
   document.querySelectorAll('.variant button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
   // Convert what's already on screen.
+  for (const m of chat) {
+    if (m.from !== 'de' || !m.raw) continue;
+    m.tr = toVariant(m.raw, v);
+    const el = chatEls.get(m);
+    if (el) el.tr.textContent = m.tr;
+  }
+  if (chat.length) saveChat();
   const lines = $('feedEn').children;
   history.forEach((h, i) => {
     if (!h.en) return;
@@ -454,7 +557,7 @@ function setVariant(v) {
 // ---------- Transcript ----------
 function saveHistory() {
   $('count').textContent = history.length ? `· ${history.length} sentence${history.length === 1 ? '' : 's'}` : '';
-  document.body.classList.toggle('has-lines', !!(history.length || liveEl));
+  updateHasLines();
   store.set('lt-history', JSON.stringify(history));
 }
 function restoreHistory() {
@@ -714,6 +817,150 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && listening) { keepAwake(); tick(); }
 });
 
+// ---------- Two-way conversation ----------
+// Browsers recognise one language per session, so each side taps their own button before speaking.
+const chat = [];              // {from: 'de'|'en', orig, raw, tr, time}
+const chatEls = new Map();    // chat entry -> its DOM parts
+let talkRec = null, speakOn = store.get('lt-speak', '1') === '1';
+const isTalk = () => document.body.dataset.mode === 'talk';
+
+function updateHasLines() {
+  document.body.classList.toggle('has-lines', isTalk() ? chat.length > 0 : !!(history.length || liveEl));
+  $('count').textContent = isTalk()
+    ? (chat.length ? `· ${chat.length} message${chat.length === 1 ? '' : 's'}` : '')
+    : (history.length ? `· ${history.length} sentence${history.length === 1 ? '' : 's'}` : '');
+}
+
+const REPLAY_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>';
+function addMsg(from) {
+  const el = document.createElement('div');
+  el.className = `msg ${from} live pending`;
+  const flag = from === 'de' ? document.querySelector('.tmic.de .badge').innerHTML : document.querySelector('.tmic.en .badge').innerHTML;
+  el.innerHTML = `<div class="who">${flag}<span></span><button class="replay" title="Read aloud" aria-label="Read aloud" hidden>${REPLAY_SVG}</button></div><div class="tr"></div><div class="orig"></div>`;
+  el.querySelector('.who span').textContent = from === 'de' ? 'German speaker' : 'You';
+  $('chat').appendChild(el);
+  document.body.classList.add('has-lines');
+  return { el, tr: el.querySelector('.tr'), orig: el.querySelector('.orig'), replay: el.querySelector('.replay') };
+}
+function scrollChat() { const c = $('chat'); c.scrollTop = c.scrollHeight; }
+
+const voiceLang = lang => lang === 'de' ? 'de-DE' : `en-${variant}`;
+function speak(text, lang) {
+  if (!('speechSynthesis' in self) || !text || text.startsWith('⚠')) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = voiceLang(lang);
+  const voices = speechSynthesis.getVoices();
+  u.voice = voices.find(v => v.lang.replace('_', '-') === u.lang) || voices.find(v => v.lang.startsWith(lang)) || null;
+  speechSynthesis.speak(u);
+}
+
+async function finishMsg(parts, from, text) {
+  const to = from === 'de' ? 'en' : 'de';
+  const m = { from, orig: text, raw: '', tr: '', time: new Date() };
+  chat.push(m);
+  chatEls.set(m, parts);
+  parts.el.classList.remove('live');
+  parts.orig.textContent = text;
+  parts.tr.textContent = '…';
+  updateHasLines();
+  try {
+    m.raw = await translateRaw(text, from, to);
+    m.tr = to === 'en' ? toVariant(m.raw, variant) : m.raw;
+    parts.tr.textContent = m.tr;
+    parts.replay.hidden = false;
+    parts.replay.onclick = () => speak(m.tr, to);
+    if (speakOn) speak(m.tr, to);
+  } catch (e) {
+    parts.tr.textContent = '⚠ ' + e.message;
+  }
+  parts.el.classList.remove('pending');
+  saveChat();
+  scrollChat();
+}
+
+function renderMsg(m) {
+  const parts = addMsg(m.from);
+  parts.el.classList.remove('live', 'pending');
+  parts.tr.textContent = m.tr || '⚠ not translated';
+  parts.orig.textContent = m.orig;
+  if (m.tr) { parts.replay.hidden = false; parts.replay.onclick = () => speak(m.tr, m.from === 'de' ? 'en' : 'de'); }
+  chatEls.set(m, parts);
+}
+function saveChat() {
+  updateHasLines();
+  store.set('lt-chat', JSON.stringify(chat));
+}
+function restoreChat() {
+  let saved = [];
+  try { saved = JSON.parse(store.get('lt-chat', '[]')); } catch {}
+  for (const m of saved) { m.time = new Date(m.time); chat.push(m); renderMsg(m); }
+  requestAnimationFrame(scrollChat);
+}
+
+function setTalkUI() {
+  for (const [id, lang] of [['talkDe', 'de'], ['talkEn', 'en']]) {
+    $(id).classList.toggle('on', talkRec?.from === lang);
+  }
+  if (isTalk()) setStatus(!talkRec ? 'Tap a flag, then speak' : talkRec.from === 'de' ? 'Listening for German…' : 'Listening for English…');
+}
+
+function talk(from) {
+  const cur = talkRec;
+  if (cur) {
+    // Tapping the active button ends the turn early; tapping the other one hands over.
+    talkRec = null;
+    cur.stop();
+    setTalkUI();
+    if (cur.from === from) return;
+  }
+  if (listening) stop();
+  // iOS only allows speech output that starts from a tap, so unlock it now for the reply later.
+  if ('speechSynthesis' in self) { speechSynthesis.cancel(); if (speakOn) speechSynthesis.speak(new SpeechSynthesisUtterance('')); }
+  keepAwake();
+  note('');
+
+  const r = new SR();
+  r.from = from;
+  r.lang = voiceLang(from);
+  r.continuous = false;
+  r.interimResults = true;
+  let parts = null, text = '';
+  r.onresult = e => {
+    text = [...e.results].map(x => x[0].transcript).join('').trim();
+    if (!text) return;
+    if (!parts) parts = addMsg(from);
+    parts.orig.textContent = text;
+    scrollChat();
+  };
+  r.onerror = e => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      note('Microphone access was blocked. Tap the 🔒 icon in the address bar, allow the microphone, then try again.');
+    } else if (e.error === 'no-speech') {
+      note('Didn\u2019t catch that — tap the button and speak again.');
+    } else if (e.error !== 'aborted') {
+      note(`Speech recognition error (${e.error}) — please try again.`);
+    }
+  };
+  r.onend = () => {
+    if (talkRec === r) { talkRec = null; setTalkUI(); }
+    if (text) finishMsg(parts, from, text);
+    else if (parts) parts.el.remove();
+  };
+  talkRec = r;
+  setTalkUI();
+  try { r.start(); } catch { talkRec = null; setTalkUI(); }
+}
+
+$('talkDe').onclick = () => talk('de');
+$('talkEn').onclick = () => talk('en');
+$('speak').onclick = () => {
+  speakOn = !speakOn;
+  $('speak').setAttribute('aria-pressed', speakOn);
+  store.set('lt-speak', speakOn ? '1' : '0');
+  if (!speakOn && 'speechSynthesis' in self) speechSynthesis.cancel();
+};
+
 // ---------- Controls ----------
 $('toggle').onclick = () => listening ? stop() : start();
 $('settings').onclick = () => { $('gkey').value = googleKey; $('email').value = quotaEmail; $('dlg').showModal(); };
@@ -725,6 +972,11 @@ $('dlg').addEventListener('close', () => {
   showEngine();
 });
 $('clear').onclick = () => {
+  if (isTalk()) {
+    if (chat.length && !confirm('Clear the whole conversation?')) return;
+    $('chat').innerHTML = ''; chat.length = 0; chatEls.clear(); saveChat();
+    return;
+  }
   if (history.length && !confirm('Clear the whole transcript?')) return;
   $('feedDe').innerHTML = $('feedEn').innerHTML = ''; history.length = 0; liveEl = null; saveHistory();
 };
@@ -733,8 +985,20 @@ function setSize(v) {
   for (const b of $('size').children) b.setAttribute('aria-pressed', b.dataset.size === v);
 }
 function setMode(m) {
+  const wasTalk = isTalk();
   document.body.dataset.mode = m;
   for (const b of $('mode').children) b.setAttribute('aria-pressed', b.dataset.mode === m);
+  if (m === 'talk') {
+    if (listening) stop();
+    setTalkUI();
+  } else if (wasTalk) {
+    if (talkRec) { const r = talkRec; talkRec = null; r.abort(); }
+    setTalkUI();
+    setStatus('Press and start talking');
+    try { wakeLock && wakeLock.release(); } catch {}
+    wakeLock = null;
+  }
+  updateHasLines();
 }
 $('size').onclick = e => { const b = e.target.closest('button'); if (b) { setSize(b.dataset.size); store.set('lt-size', b.dataset.size); } };
 document.querySelectorAll('.variant').forEach(g => g.addEventListener('click', e => {
@@ -743,26 +1007,35 @@ document.querySelectorAll('.variant').forEach(g => g.addEventListener('click', e
 }));
 $('mode').onclick = e => { const b = e.target.closest('button'); if (b) { setMode(b.dataset.mode); store.set('lt-mode', b.dataset.mode); } };
 $('save').onclick = () => {
-  if (!history.length) return;
-  const txt = history.map(h => `[${h.time.toLocaleTimeString()}]\nDE: ${h.de}\nEN: ${h.en}\n`).join('\n');
+  let txt;
+  if (isTalk()) {
+    if (!chat.length) return;
+    txt = chat.map(m => `[${m.time.toLocaleTimeString()}] ${m.from === 'de' ? 'German speaker' : 'You'}\n${m.from.toUpperCase()}: ${m.orig}\n${m.from === 'de' ? 'EN' : 'DE'}: ${m.tr}\n`).join('\n');
+  } else {
+    if (!history.length) return;
+    txt = history.map(h => `[${h.time.toLocaleTimeString()}]\nDE: ${h.de}\nEN: ${h.en}\n`).join('\n');
+  }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain' }));
   a.download = `transcript-${new Date().toISOString().slice(0, 16).replace(':', '-')}.txt`;
   a.click();
 };
 document.addEventListener('keydown', e => {
-  if (e.code === 'Space' && !['SELECT', 'INPUT', 'BUTTON'].includes(e.target.tagName) && !$('dlg').open) { e.preventDefault(); $('toggle').click(); }
+  if (e.code === 'Space' && !isTalk() && !['SELECT', 'INPUT', 'BUTTON'].includes(e.target.tagName) && !$('dlg').open) { e.preventDefault(); $('toggle').click(); }
 });
 
 setSize(store.get('lt-size', '22px'));
-setMode(store.get('lt-mode', 'both'));
+$('speak').setAttribute('aria-pressed', speakOn);
 restoreHistory();
+restoreChat();
+setMode(store.get('lt-mode', 'both'));
 setVariant(variant);
 
 if (!SR) {
   note('This browser does not support live speech recognition. Please open this page in <b>Chrome</b>, <b>Edge</b>, or <b>Safari</b>.');
-  $('toggle').disabled = true;
+  $('toggle').disabled = $('talkDe').disabled = $('talkEn').disabled = true;
 }
+showEngine();
 initTranslator();
 </script>
 </body>
