@@ -473,7 +473,11 @@ async function translateRaw(text, from = 'de', to = 'en') {
     const j = await r.json();
     if (j.quotaFinished) throw new Error('Daily free translation limit reached — add a Google key in Settings');
     if (j.responseStatus != 200) throw new Error(j.responseDetails || 'Translation failed');
+    // The top result can be a fuzzy match from the public translation memory (a different sentence that
+    // merely looks similar). Unless that match is exact, use the machine translation of *this* sentence.
     out = j.responseData.translatedText;
+    const mt = (j.matches || []).find(m => m['created-by'] === 'MT!');
+    if (mt && Number(j.responseData.match) < 1) out = mt.translation;
   }
   cache.set(key, out);
   return out;
@@ -596,7 +600,9 @@ function scrollDown() {
   for (const id in stick) if (stick[id]) $(id).scrollTop = $(id).scrollHeight;
 }
 
-async function finalize(de) {
+async function finalize(de, sentenceEnd = true) {
+  de = tidy(de, sentenceEnd);
+  if (!de) { dropLiveLine(); return; }
   const line = liveEl || makeLine();
   liveEl = null;
   clearTimeout(liveTimer);
@@ -641,26 +647,58 @@ function dropLiveLine() {
 
 // ---------- Chunking ----------
 // Speakers in lectures rarely pause, so the recognizer may not mark a sentence final for 20+ seconds.
-// Instead of waiting, commit the older, already-stable words of the live text as their own line.
-const CHUNK = 10;  // commit once this many uncommitted words are stable…
-const HOLD = 4;    // …keeping the newest words live, since the recognizer may still revise them
-const BREAK_BEFORE = new Set(['und', 'aber', 'oder', 'denn', 'sondern', 'dass', 'weil', 'wenn', 'als', 'ob', 'damit',
-  'obwohl', 'während', 'also', 'deshalb', 'dann', 'doch', 'jedoch', 'sodass', 'bevor', 'nachdem', 'wobei']);
+// Rather than wait, commit finished clauses as their own lines. Translation engines translate by meaning
+// only when given a whole clause — a fragment cut mid-clause comes back as invented or literal English —
+// so we only ever cut at a clause boundary.
+const MIN_CLAUSE = 5;   // don't commit tiny pieces
+const HOLD = 3;         // words after the cut must be heard before committing (the recognizer may still revise)
+const MAX_WAIT = 40;    // a speaker with no clause breaks at all: fall back to a coarser cut
+// Subordinating/contrastive conjunctions that start a new clause; the text before them is a complete clause.
+const CLAUSE_START = new Set(['weil', 'dass', 'daß', 'wenn', 'obwohl', 'obgleich', 'bevor', 'nachdem', 'sodass', 'sondern',
+  'denn', 'falls', 'sobald', 'solange', 'sofern', 'wohingegen', 'indem', 'seitdem', 'bis', 'ehe']);
+// Patterns that start a new main clause in running speech: "und ich …", "deshalb ist …", "während andere …".
+const CONJ = new Set(['und', 'aber', 'oder']);
+const PRONOUN = new Set(['ich', 'du', 'er', 'sie', 'es', 'wir', 'ihr', 'man']);
+const CLAUSE_ADVERB = new Set(['deshalb', 'daher', 'darum', 'deswegen', 'trotzdem', 'außerdem', 'dann', 'danach', 'jetzt', 'heute', 'also']);
+const FINITE_VERB = new Set(['ist', 'sind', 'war', 'waren', 'hat', 'haben', 'hatte', 'hatten', 'wird', 'werden', 'kann', 'können',
+  'muss', 'müssen', 'soll', 'sollen', 'will', 'wollen', 'darf', 'dürfen', 'gibt', 'gab', 'geht', 'gehen', 'sehen', 'machen', 'kommen', 'möchte', 'möchten']);
+const bare = t => (t || '').toLowerCase().replace(/[^a-zäöüß]/g, '');
+function startsClause(w, i) {
+  const a = bare(w[i]), b = bare(w[i + 1]);
+  if (CLAUSE_START.has(a)) return true;
+  if (CONJ.has(a) && PRONOUN.has(b)) return true;
+  if (CLAUSE_ADVERB.has(a) && FINITE_VERB.has(b)) return true;
+  if (a === 'während' && b && !['der', 'des', 'dem', 'den', 'dieser', 'dieses', 'meiner', 'seiner', 'ihrer', 'unserer'].includes(b)) return true;
+  return false;
+}
 let committed = 0; // words of the current utterance already sent as lines
 const words = t => t.split(/\s+/).filter(Boolean);
+
+// Returns the index to cut before, or -1 if the uncommitted words contain no safe clause boundary yet.
+function findCut(w) {
+  let cut = -1;
+  for (let i = committed + MIN_CLAUSE; i < w.length - HOLD; i++) {
+    if (/[.!?;:]$/.test(w[i - 1])) cut = i;                     // punctuation from the recognizer
+    else if (/,$/.test(w[i - 1]) && i - committed >= 8) cut = i; // a comma, if the clause is long enough
+    else if (startsClause(w, i)) cut = i;
+  }
+  if (cut < 0 && w.length - committed >= MAX_WAIT) {
+    // No clause boundary in 40 words: cut before the last "und"/"aber"/"oder", else keep the newest words live.
+    cut = w.length - HOLD;
+    for (let i = w.length - HOLD; i > committed + MIN_CLAUSE; i--) {
+      if (['und', 'aber', 'oder'].includes(w[i].toLowerCase())) { cut = i; break; }
+    }
+  }
+  return cut;
+}
 
 function onInterim(text) {
   const w = words(text);
   if (committed > w.length) committed = w.length;
-  if (w.length - committed >= CHUNK + HOLD) {
-    let cut = w.length - HOLD;
-    // Prefer to split just before a conjunction so each chunk reads as a clause.
-    for (let i = cut; i > committed + 5; i--) {
-      if (BREAK_BEFORE.has(w[i].toLowerCase())) { cut = i; break; }
-    }
-    const chunk = w.slice(committed, cut).join(' ');
+  const cut = findCut(w);
+  if (cut > committed) {
+    finalize(w.slice(committed, cut).join(' '), /[.!?]$/.test(w[cut - 1]));
     committed = cut;
-    finalize(chunk);
   }
   const rest = w.slice(committed).join(' ');
   if (rest) showInterim(rest);
@@ -670,8 +708,18 @@ function onFinal(text) {
   const w = words(text);
   const rest = w.slice(committed).join(' ');
   committed = Math.max(0, committed - w.length);
-  if (rest) finalize(rest);
+  if (rest) finalize(rest, true);
   else dropLiveLine();
+}
+
+// Speech recognition returns bare words; engines translate a proper sentence more naturally.
+function tidy(text, sentenceEnd) {
+  text = text.trim().replace(/\s+([,.!?;:])/g, '$1');
+  if (!text) return text;
+  text = text[0].toUpperCase() + text.slice(1);
+  if (sentenceEnd && !/[.!?…]$/.test(text)) text += '.';
+  if (!sentenceEnd) text = text.replace(/[,;:]$/, '');
+  return text;
 }
 
 // ---------- Speech recognition ----------
@@ -944,7 +992,7 @@ function talk(from) {
   };
   r.onend = () => {
     if (talkRec === r) { talkRec = null; setTalkUI(); }
-    if (text) finishMsg(parts, from, text);
+    if (text) finishMsg(parts, from, tidy(text, true));
     else if (parts) parts.el.remove();
   };
   talkRec = r;
