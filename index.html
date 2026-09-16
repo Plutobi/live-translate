@@ -6,6 +6,8 @@
 <meta name="theme-color" content="#ffffff">
 <title>Live Übersetzer</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>">
+<link rel="preconnect" href="https://api.mymemory.translated.net" crossorigin>
+<link rel="preconnect" href="https://translation.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -114,6 +116,7 @@
   /* Translation is what you read — give it the larger share of the space. */
   body[data-mode="both"] .panes { grid-template-columns: 2fr 3fr; }
   #feedEn .s.pending { color: var(--muted); }
+  #feedEn .s:empty { display: none; }
   .note { margin: 0 0 10px; padding: 10px 14px; border-radius: 14px; background: var(--red-ring); color: var(--strong); font-size: 14px; display: none; }
   body.has-lines .langs { display: none; }
   /* Before captions start, the intro can push the page taller than the screen — let it scroll instead of crushing the panes. */
@@ -516,7 +519,6 @@ async function finalize(de) {
 function showInterim(de) {
   if (!liveEl) liveEl = makeLine();
   liveEl.de.textContent = de;
-  if (!liveEl.en.textContent) liveEl.en.textContent = '…';
   scrollDown();
   // Only translate partial speech with the on-device engine, to spare the online quota.
   if (engine !== 'builtin') return;
@@ -527,10 +529,55 @@ function showInterim(de) {
   }, 250);
 }
 
+function dropLiveLine() {
+  if (!liveEl) return;
+  liveEl.de.remove();
+  liveEl.en.remove();
+  liveEl = null;
+}
+
+// ---------- Chunking ----------
+// Speakers in lectures rarely pause, so the recognizer may not mark a sentence final for 20+ seconds.
+// Instead of waiting, commit the older, already-stable words of the live text as their own line.
+const CHUNK = 10;  // commit once this many uncommitted words are stable…
+const HOLD = 4;    // …keeping the newest words live, since the recognizer may still revise them
+const BREAK_BEFORE = new Set(['und', 'aber', 'oder', 'denn', 'sondern', 'dass', 'weil', 'wenn', 'als', 'ob', 'damit',
+  'obwohl', 'während', 'also', 'deshalb', 'dann', 'doch', 'jedoch', 'sodass', 'bevor', 'nachdem', 'wobei']);
+let committed = 0; // words of the current utterance already sent as lines
+const words = t => t.split(/\s+/).filter(Boolean);
+
+function onInterim(text) {
+  const w = words(text);
+  if (committed > w.length) committed = w.length;
+  if (w.length - committed >= CHUNK + HOLD) {
+    let cut = w.length - HOLD;
+    // Prefer to split just before a conjunction so each chunk reads as a clause.
+    for (let i = cut; i > committed + 5; i--) {
+      if (BREAK_BEFORE.has(w[i].toLowerCase())) { cut = i; break; }
+    }
+    const chunk = w.slice(committed, cut).join(' ');
+    committed = cut;
+    finalize(chunk);
+  }
+  const rest = w.slice(committed).join(' ');
+  if (rest) showInterim(rest);
+}
+
+function onFinal(text) {
+  const w = words(text);
+  const rest = w.slice(committed).join(' ');
+  committed = Math.max(0, committed - w.length);
+  if (rest) finalize(rest);
+  else dropLiveLine();
+}
+
 // ---------- Speech recognition ----------
-// Chrome ends a recognition session after silence, ~60s, or a network hiccup.
-// For hour-long listening we restart on every end, plus a watchdog in case an end is missed.
-let recActive = false, lastRestart = 0, startedAt = 0, clockTimer = null, wakeLock = null;
+// Chrome ends a recognition session after silence, ~60s, or a network hiccup, and occasionally a
+// session silently stops delivering results. A single state machine plus a watchdog keeps exactly
+// one recognizer running for as long as the user is listening.
+let recState = 'idle';          // 'idle' | 'starting' | 'active'
+let lastEvent = 0, restartTimer = null, failStreak = 0, hadSession = false;
+let startedAt = 0, clockTimer = null, wakeLock = null;
 
 function makeRec() {
   const r = new SR();
@@ -538,45 +585,80 @@ function makeRec() {
   // Android Chrome duplicates results in continuous mode; use short sessions there instead.
   r.continuous = !isAndroid;
   r.interimResults = true;
+  r.maxAlternatives = 1;
+  const alive = () => { if (r === rec) lastEvent = Date.now(); };
 
-  r.onstart = () => { recActive = true; };
+  r.onstart = () => { if (r !== rec) return; recState = 'active'; hadSession = true; alive(); };
+  r.onaudiostart = r.onspeechstart = alive;
   r.onresult = e => {
+    if (r !== rec) return;
+    alive();
+    failStreak = 0;
+    note('');
     let interim = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const res = e.results[i];
-      if (res.isFinal) { if (res[0].transcript.trim()) finalize(res[0].transcript.trim()); }
+      if (res.isFinal) onFinal(res[0].transcript.trim());
       else interim += res[0].transcript;
     }
-    if (interim.trim()) showInterim(interim.trim());
+    if (interim.trim()) onInterim(interim.trim());
   };
   r.onerror = e => {
+    if (r !== rec) return;
     if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-      note('Microphone access was blocked. Tap the 🔒 icon in the address bar, allow the microphone, then press the mic button again.');
-      stop();
+      // Blocked on the very first start means no permission; later it can be a transient refusal.
+      if (!hadSession || ++failStreak > 3) {
+        note('Microphone access was blocked. Tap the 🔒 icon in the address bar, allow the microphone, then press the mic button again.');
+        stop();
+      }
     } else if (e.error === 'network') {
-      note('Connection problem — retrying automatically…');
+      failStreak++;
+      note('Connection problem — reconnecting…');
+    } else if (e.error === 'audio-capture') {
+      failStreak++;
+      note('No microphone input — is another app using the microphone?');
     } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
-      console.warn('Recognition error:', e.error);
+      failStreak++;
+      note(`Speech recognition error (${e.error}) — retrying…`);
     }
   };
   r.onend = () => {
-    recActive = false;
-    // Keep an unfinished sentence rather than losing it when a session ends mid-phrase.
+    if (r !== rec) return;
+    recState = 'idle';
+    // Keep an unfinished phrase rather than losing it when a session ends mid-sentence.
     if (liveEl) finalize(liveEl.de.textContent);
+    committed = 0;
     if (listening) restart();
   };
   return r;
 }
 
+function launch() {
+  recState = 'starting';
+  lastEvent = Date.now();
+  try { rec.start(); }
+  catch { replaceRec(); }
+}
+
+// Throw away a stuck recognizer (ignoring its late events) and start a fresh one.
+function replaceRec() {
+  const old = rec;
+  if (old) { old.onstart = old.onresult = old.onerror = old.onend = null; try { old.abort(); } catch {} }
+  if (liveEl) finalize(liveEl.de.textContent);
+  committed = 0;
+  rec = makeRec();
+  recState = 'idle';
+  if (listening) restart();
+}
+
 function restart() {
-  if (!listening || recActive) return;
-  const wait = Math.max(0, 300 - (Date.now() - lastRestart));
-  setTimeout(() => {
-    if (!listening || recActive) return;
-    lastRestart = Date.now();
-    try { rec.start(); }
-    catch { rec = makeRec(); try { rec.start(); } catch {} }
-  }, wait);
+  if (!listening || recState !== 'idle' || restartTimer) return;
+  // Restart immediately after a normal session; back off if sessions keep failing.
+  const delay = Math.min(failStreak * 500, 3000);
+  restartTimer = setTimeout(() => {
+    restartTimer = null;
+    if (listening && recState === 'idle') launch();
+  }, delay);
 }
 
 async function keepAwake() {
@@ -587,20 +669,26 @@ async function keepAwake() {
 function tick() {
   const sec = Math.floor((Date.now() - startedAt) / 1000);
   const t = `${Math.floor(sec / 3600)}:${String(Math.floor(sec / 60) % 60).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
-  setStatus(`Listening · ${t}`);
-  if (!recActive && Date.now() - lastRestart > 4000) restart(); // watchdog
+  setStatus(recState === 'active' ? `Listening · ${t}` : `Reconnecting… · ${t}`);
+  // Watchdog
+  const quiet = Date.now() - lastEvent;
+  if (recState === 'idle') restart();
+  else if (recState === 'starting' && quiet > 5000) replaceRec();
+  else if (recState === 'active' && quiet > 8000) replaceRec(); // no results for a while: session may be stuck
 }
 
 function start() {
   note('');
   listening = true;
+  failStreak = 0;
+  hadSession = false;
+  committed = 0;
   startedAt = Date.now();
   $('toggle').classList.add('on');
   document.body.classList.add('listening');
   $('toggle').setAttribute('aria-label', 'Stop listening');
   rec = makeRec();
-  lastRestart = Date.now();
-  rec.start();
+  launch();
   keepAwake();
   clockTimer = setInterval(tick, 1000);
   tick();
@@ -609,7 +697,10 @@ function start() {
 function stop() {
   listening = false;
   clearInterval(clockTimer);
+  clearTimeout(restartTimer);
+  restartTimer = null;
   try { rec && rec.stop(); } catch {}
+  recState = 'idle';
   try { wakeLock && wakeLock.release(); } catch {}
   wakeLock = null;
   $('toggle').classList.remove('on');
@@ -620,7 +711,7 @@ function stop() {
 
 // Wake locks are dropped when the tab is hidden; re-acquire and resume when it's visible again.
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && listening) { keepAwake(); restart(); }
+  if (document.visibilityState === 'visible' && listening) { keepAwake(); tick(); }
 });
 
 // ---------- Controls ----------
