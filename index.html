@@ -2,124 +2,264 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
 <title>Live Übersetzer</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f6f5f2; --panel: #ffffff; --text: #1b1b1f; --muted: #6b6b76;
-    --border: #e3e1dc; --accent: #d93a2b; --accent-soft: #fbe7e4; --ok: #1f8a4c;
+    --bg: #ffffff; --surface: #f5f7fa; --card: #ffffff; --text: #334260; --strong: #1d2a44;
+    --muted: #7a8599; --border: #e4e8ef; --blue: #1073e6; --blue-soft: rgba(16,115,230,.1);
+    --red: #ef4d5d; --red-dark: #d93446; --red-ring: rgba(239,77,93,.14);
+    --shadow: 0 2px 8px rgba(29,42,68,.08);
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #121215; --panel: #1b1b20; --text: #ececf1; --muted: #9a9aa6;
-      --border: #2c2c33; --accent: #ff5a47; --accent-soft: #3a1d1a; --ok: #4ccf86;
+      --bg: #0f141d; --surface: #171e2a; --card: #1c2433; --text: #c9d2e3; --strong: #f1f4fa;
+      --muted: #8591a7; --border: #273044; --blue: #4d9bff; --blue-soft: rgba(77,155,255,.14);
+      --red-ring: rgba(239,77,93,.2); --shadow: 0 2px 8px rgba(0,0,0,.35);
     }
   }
   :root[data-theme="dark"] {
-    --bg: #121215; --panel: #1b1b20; --text: #ececf1; --muted: #9a9aa6;
-    --border: #2c2c33; --accent: #ff5a47; --accent-soft: #3a1d1a; --ok: #4ccf86;
+    --bg: #0f141d; --surface: #171e2a; --card: #1c2433; --text: #c9d2e3; --strong: #f1f4fa;
+    --muted: #8591a7; --border: #273044; --blue: #4d9bff; --blue-soft: rgba(77,155,255,.14);
+    --red-ring: rgba(239,77,93,.2); --shadow: 0 2px 8px rgba(0,0,0,.35);
   }
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
     margin: 0; background: var(--bg); color: var(--text);
-    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    height: 100dvh; display: flex; flex-direction: column;
+    font: 500 15px/1.5 "Plus Jakarta Sans", system-ui, sans-serif;
+    display: flex; flex-direction: column; height: 100dvh;
   }
-  header {
-    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-    padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--panel);
-  }
-  h1 { font-size: 17px; margin: 0; font-weight: 650; }
-  h1 span { color: var(--muted); font-weight: 400; }
-  .spacer { flex: 1; }
-  .status { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
-  .listening .dot { background: var(--accent); animation: pulse 1.2s infinite; }
-  @keyframes pulse { 50% { opacity: .3; } }
-  button, select {
-    font: inherit; font-size: 14px; border-radius: 8px; border: 1px solid var(--border);
-    background: var(--panel); color: var(--text); padding: 7px 12px; cursor: pointer;
-  }
-  button:hover { border-color: var(--muted); }
-  #toggle { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; min-width: 110px; }
-  #toggle.on { background: var(--panel); color: var(--accent); }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .wrap { width: 100%; max-width: 760px; margin: 0 auto; padding: 0 16px; }
 
-  main { flex: 1; overflow-y: auto; padding: 16px; }
-  .feed { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
-  .line { border-left: 3px solid var(--border); padding: 2px 0 2px 14px; }
-  .line.live { border-color: var(--accent); }
-  .en { font-size: var(--size, 26px); line-height: 1.35; font-weight: 500; }
-  .de { font-size: calc(var(--size, 26px) * .6); color: var(--muted); margin-top: 2px; }
-  body.hide-de .de { display: none; }
-  .live .en { opacity: .75; }
-  .empty { color: var(--muted); text-align: center; margin-top: 12vh; max-width: 520px; margin-inline: auto; }
-  .empty b { color: var(--text); }
-  .note {
-    max-width: 900px; margin: 0 auto 14px; padding: 10px 14px; border-radius: 8px;
-    background: var(--accent-soft); font-size: 14px; display: none;
+  /* Top bar */
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding-top: 14px; padding-bottom: 6px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: var(--strong); }
+  .round {
+    width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--border);
+    background: var(--surface); display: grid; place-items: center; padding: 0;
   }
-  dialog { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); color: var(--text); width: min(460px, calc(100vw - 32px)); }
-  dialog::backdrop { background: rgba(0,0,0,.5); }
-  dialog h2 { font-size: 17px; margin: 0 0 12px; }
-  dialog label { display: block; margin-bottom: 14px; font-size: 14px; }
-  dialog small { color: var(--muted); }
-  dialog input { display: block; width: 100%; margin-top: 4px; font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  .round:hover { border-color: var(--muted); }
+  .round svg { width: 20px; height: 20px; }
+
+  /* Hero */
+  .hero { text-align: center; padding: 10px 0 18px; }
+  .hero h1 { margin: 0; font-size: clamp(26px, 5vw, 34px); font-weight: 500; color: var(--strong); letter-spacing: -.01em; }
+  .hero p { margin: 6px 0 0; color: var(--muted); font-size: clamp(14px, 2.6vw, 17px); }
+  body.has-lines .hero { display: none; }
+
+  /* Segmented control */
+  .seg {
+    display: flex; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 999px; padding: 5px; gap: 4px;
+  }
+  .seg button {
+    flex: 1; border: 0; background: transparent; border-radius: 999px; padding: 8px 6px;
+    color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 15px;
+  }
+  .seg button svg { width: 17px; height: 17px; }
+  .seg button[aria-pressed="true"] { background: var(--card); color: var(--blue); box-shadow: var(--shadow); }
+
+  /* Language row */
+  .langs { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+  .lang {
+    flex: 1; display: flex; align-items: center; gap: 10px; padding: 0 20px; height: 56px;
+    border: 1px solid var(--border); border-radius: 999px; background: var(--card); color: var(--strong); font-size: 16px;
+  }
+  .lang .flag { width: 26px; height: 18px; border-radius: 4px; flex: none; box-shadow: 0 0 0 1px var(--border); }
+  .lang small { margin-left: auto; color: var(--muted); font-size: 12px; }
+  .arrow { width: 56px; height: 56px; flex: none; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); display: grid; place-items: center; color: var(--muted); }
+  .arrow svg { width: 18px; height: 18px; }
+
+  /* Option row */
+  .opts { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; color: var(--strong); flex-wrap: wrap; }
+  .sizes { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 3px; }
+  .sizes button { border: 0; background: transparent; border-radius: 999px; width: 38px; height: 30px; color: var(--muted); font-weight: 600; padding: 0; }
+  .sizes button[aria-pressed="true"] { background: var(--card); color: var(--blue); box-shadow: var(--shadow); }
+
+  /* Split panes: German (live) | English — stacked on phones */
+  main.wrap { max-width: 1100px; }
+  main { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 14px; }
+  .panes { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  body[data-mode="de"] #paneEn, body[data-mode="en"] #paneDe { display: none; }
+  body:not([data-mode="both"]) .panes { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+  .pane { min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; }
+  .pane-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .pane-head .flag { width: 20px; height: 14px; border-radius: 3px; box-shadow: 0 0 0 1px var(--border); }
+  .live-tag { margin-left: auto; display: none; align-items: center; gap: 6px; color: var(--red); }
+  .live-tag::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--red); animation: blink 1.2s infinite; }
+  body.listening .live-tag { display: inline-flex; }
+  @keyframes blink { 50% { opacity: .25; } }
+  .pane-body { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 16px 14px; -webkit-overflow-scrolling: touch; }
+  .pane-body:empty::before { content: attr(data-placeholder); color: var(--muted); font-size: 15px; }
+  .s { margin: 0 0 .45em; font-size: var(--size, 22px); line-height: 1.45; color: var(--strong); font-weight: 500; }
+  #feedDe .s.live { color: var(--blue); }
+  #feedEn .s.pending { color: var(--muted); }
+  .note { margin: 0 0 10px; padding: 10px 14px; border-radius: 14px; background: var(--red-ring); color: var(--strong); font-size: 14px; display: none; }
+  body.has-lines .langs { display: none; }
+
+  @media (max-width: 700px) {
+    body[data-mode="both"] .panes { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; gap: 10px; }
+    .s { font-size: calc(var(--size, 22px) * .85); }
+    body.has-lines .seg button svg { display: none; }
+    body.has-lines .seg button { padding: 6px; }
+    body.has-lines .opts { margin-top: 10px; }
+  }
+
+  /* Bottom dock */
+  .dock { padding-top: 6px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  .controls { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; }
+  .side { display: flex; gap: 10px; }
+  .side.right { justify-content: flex-end; }
+  .bubble {
+    justify-self: center; grid-column: 1 / -1; margin-bottom: 10px; padding: 6px 14px; border-radius: 999px;
+    background: var(--surface); color: var(--blue); font-size: 15px; position: relative; font-variant-numeric: tabular-nums;
+  }
+  .bubble::after {
+    content: ""; position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%);
+    border: 6px solid transparent; border-bottom: 0; border-top-color: var(--surface);
+  }
+  .mic {
+    width: 100px; height: 100px; border-radius: 50%; border: 0; padding: 0; display: grid; place-items: center;
+    background: linear-gradient(180deg, var(--red), var(--red-dark)); color: #fff;
+    box-shadow: 0 0 0 10px var(--red-ring), 0 6px 18px rgba(217,52,70,.3); transition: transform .15s;
+  }
+  .mic:hover { transform: scale(1.03); }
+  .mic:disabled { opacity: .4; cursor: not-allowed; }
+  .mic svg { width: 40px; height: 40px; }
+  .mic .i-stop { display: none; }
+  .mic.on .i-mic { display: none; }
+  .mic.on .i-stop { display: block; width: 30px; height: 30px; }
+  .mic.on { animation: ring 1.6s ease-out infinite; }
+  @keyframes ring {
+    0% { box-shadow: 0 0 0 0 rgba(239,77,93,.45), 0 6px 18px rgba(217,52,70,.3); }
+    100% { box-shadow: 0 0 0 22px rgba(239,77,93,0), 0 6px 18px rgba(217,52,70,.3); }
+  }
+  .meta { text-align: center; font-size: 12px; color: var(--muted); margin-top: 12px; }
+
+  /* Settings dialog */
+  dialog { border: 1px solid var(--border); border-radius: 20px; background: var(--card); color: var(--text); width: min(460px, calc(100vw - 32px)); padding: 22px; }
+  dialog::backdrop { background: rgba(15,20,29,.45); }
+  dialog h2 { font-size: 19px; font-weight: 600; margin: 0 0 14px; color: var(--strong); }
+  dialog label { display: block; margin-bottom: 14px; font-size: 14px; color: var(--strong); }
+  dialog small { color: var(--muted); font-weight: 400; }
+  dialog input { display: block; width: 100%; margin-top: 6px; font: inherit; padding: 11px 16px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--strong); }
+  dialog input:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
   dialog .row { display: flex; justify-content: flex-end; gap: 8px; }
-  footer {
-    padding: 8px 16px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border);
-    background: var(--panel); display: flex; gap: 12px; flex-wrap: wrap;
-  }
-  @media (max-width: 600px) {
-    header { gap: 8px; }
-    .status { order: 5; width: 100%; }
+  .btn { border-radius: 999px; padding: 10px 22px; border: 1px solid var(--border); background: var(--card); }
+  .btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 600; }
+
+  @media (max-width: 480px) {
+    .seg button { font-size: 13px; }
+    .lang { height: 48px; padding: 0 14px; font-size: 15px; }
+    .lang small { display: none; }
+    .arrow { width: 44px; height: 44px; }
+    .mic { width: 84px; height: 84px; }
+    .round { width: 40px; height: 40px; }
   }
 </style>
 </head>
-<body>
-<header>
-  <h1>Live Übersetzer <span>Deutsch → English</span></h1>
-  <div class="spacer"></div>
-  <select id="size" title="Text size">
-    <option value="20px">Small</option>
-    <option value="26px" selected>Medium</option>
-    <option value="34px">Large</option>
-    <option value="44px">XL</option>
-  </select>
-  <button id="showDe" title="Show/hide the German original">Hide German</button>
-  <button id="save" title="Download transcript">Save</button>
-  <button id="settings" title="Translation settings">Settings</button>
-  <button id="clear">Clear</button>
-  <button id="toggle">▶ Start</button>
-  <div class="status" id="status"><span class="dot"></span><span id="statusText">Idle</span></div>
-</header>
+<body data-mode="both">
+<header class="wrap">
+  <div class="topbar">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
+        <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1073e6"/><stop offset="1" stop-color="#ef4d5d"/></linearGradient></defs>
+        <rect width="32" height="32" rx="9" fill="url(#lg)"/>
+        <path d="M9 13v6M13 10v12M17 12v8M21 9v14M25 14v4" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+      </svg>
+      Live Übersetzer
+    </div>
+    <button class="round" id="settings" title="Settings" aria-label="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+  </div>
 
-<main id="main">
-  <div class="note" id="note"></div>
-  <div class="feed" id="feed">
-    <div class="empty" id="empty">
-      Press <b>Start</b> and allow microphone access.<br>
-      German speech appears here, translated into English as it's spoken.
+  <div class="hero">
+    <h1>Live Translate</h1>
+    <p>German speech, English captions — in real time.</p>
+  </div>
+
+  <div class="seg" id="mode" role="group" aria-label="Caption mode">
+    <button data-mode="de" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 10h16M4 14h10M4 18h13"/></svg>Transcribe</button>
+    <button data-mode="en" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h9M8.5 3v2M11 5c-.8 3.6-3.2 6.6-6.5 8.5M6 8.5c1.2 2 3 3.6 5 4.5M12.5 21l4-10 4 10M14 17h5"/></svg>Translate</button>
+    <button data-mode="both" aria-pressed="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 10h10M7 14h6"/></svg>Both</button>
+  </div>
+
+  <div class="langs">
+    <div class="lang"><svg class="flag" viewBox="0 0 30 20" aria-hidden="true"><rect width="30" height="7" fill="#000"/><rect y="6.6" width="30" height="6.8" fill="#dd0000"/><rect y="13.3" width="30" height="6.7" fill="#ffce00"/></svg>German<small>Speaker</small></div>
+    <div class="arrow" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </div>
+    <div class="lang"><svg class="flag" viewBox="0 0 60 30" aria-hidden="true"><clipPath id="gbc"><path d="M0 0v30h60V0z"/></clipPath><g clip-path="url(#gbc)"><path d="M0 0v30h60V0z" fill="#012169"/><path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0l60 30m0-30L0 30" stroke="#C8102E" stroke-width="3"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/></g></svg>English<small>Captions</small></div>
+  </div>
+
+  <div class="opts">
+    <span>Text size</span>
+    <div class="sizes" id="size" role="group" aria-label="Text size">
+      <button data-size="18px" aria-pressed="false" style="font-size:12px">A</button>
+      <button data-size="22px" aria-pressed="true" style="font-size:14px">A</button>
+      <button data-size="30px" aria-pressed="false" style="font-size:17px">A</button>
+      <button data-size="40px" aria-pressed="false" style="font-size:20px">A</button>
     </div>
   </div>
+</header>
+
+<main id="main" class="wrap">
+  <div class="note" id="note"></div>
+  <div class="panes">
+    <section class="pane" id="paneDe">
+      <div class="pane-head"><svg class="flag" viewBox="0 0 30 20" aria-hidden="true"><rect width="30" height="7" fill="#000"/><rect y="6.6" width="30" height="6.8" fill="#dd0000"/><rect y="13.3" width="30" height="6.7" fill="#ffce00"/></svg>German<span class="live-tag">Live</span></div>
+      <div class="pane-body" id="feedDe" data-placeholder="German speech appears here as it's heard."></div>
+    </section>
+    <section class="pane" id="paneEn">
+      <div class="pane-head"><svg class="flag" viewBox="0 0 60 30" aria-hidden="true"><clipPath id="gbc2"><path d="M0 0v30h60V0z"/></clipPath><g clip-path="url(#gbc2)"><path d="M0 0v30h60V0z" fill="#012169"/><path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0l60 30m0-30L0 30" stroke="#C8102E" stroke-width="3"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/></g></svg>English</div>
+      <div class="pane-body" id="feedEn" data-placeholder="The English translation appears here."></div>
+    </section>
+  </div>
 </main>
+
+<div class="dock wrap">
+  <div class="controls">
+    <div class="bubble" id="status"><span id="statusText">Press and start talking</span></div>
+    <div class="side">
+      <button class="round" id="clear" title="Clear transcript" aria-label="Clear transcript">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+      </button>
+    </div>
+    <button class="mic" id="toggle" aria-label="Start listening">
+      <svg class="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></svg>
+      <svg class="i-stop" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>
+    </button>
+    <div class="side right">
+      <button class="round" id="save" title="Download transcript" aria-label="Download transcript">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="meta"><span id="engine">checking…</span> <span id="count"></span></div>
+</div>
 
 <dialog id="dlg">
   <form method="dialog">
     <h2>Translation settings</h2>
-    <label>Google Translate API key <small>(recommended for long classes — free tier covers ~500,000 characters/month)</small>
+    <label>Google Translate API key <small>— recommended for long classes; the free tier covers ~500,000 characters/month</small>
       <input id="gkey" type="password" autocomplete="off" placeholder="AIza…"></label>
-    <label>Email for MyMemory <small>(used when no key is set — raises the free limit from 5,000 to 50,000 characters/day)</small>
+    <label>Email for MyMemory <small>— used when no key is set; raises the free limit from 5,000 to 50,000 characters/day</small>
       <input id="email" type="email" autocomplete="off" placeholder="you@example.com"></label>
     <p><small>Saved only in this browser.</small></p>
-    <div class="row"><button value="cancel">Cancel</button><button value="save">Save</button></div>
+    <div class="row"><button class="btn" value="cancel">Cancel</button><button class="btn primary" value="save">Save</button></div>
   </form>
 </dialog>
-
-<footer>
-  <span>Engine: <b id="engine">checking…</b></span>
-  <span id="count"></span>
-</footer>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -162,7 +302,7 @@ async function initTranslator(fromGesture = false) {
 function showEngine() {
   $('engine').textContent = engine === 'builtin' ? 'Chrome on-device translator'
     : googleKey ? 'Google Translate API'
-    : 'MyMemory online API (small free daily limit — see Settings)';
+    : 'MyMemory · free daily limit (see Settings)';
 }
 
 const cache = new Map();
@@ -196,67 +336,79 @@ async function translate(text) {
 
 // ---------- Transcript ----------
 function saveHistory() {
-  $('count').textContent = history.length ? history.length + ' sentences' : '';
+  $('count').textContent = history.length ? '· ' + history.length + ' sentences' : '';
+  document.body.classList.toggle('has-lines', !!(history.length || liveEl));
   store.set('lt-history', JSON.stringify(history));
 }
 function restoreHistory() {
   let saved = [];
   try { saved = JSON.parse(store.get('lt-history', '[]')); } catch {}
   for (const h of saved) {
-    const el = makeLine();
-    el.classList.remove('live');
-    el.querySelector('.en').textContent = h.en || '⚠ not translated';
-    el.querySelector('.de').textContent = h.de;
+    const line = makeLine();
+    line.de.className = line.en.className = 's';
+    line.de.textContent = h.de;
+    line.en.textContent = h.en || '⚠ not translated';
     history.push({ ...h, time: new Date(h.time) });
   }
   saveHistory();
-  $('main').scrollTop = $('main').scrollHeight;
+  requestAnimationFrame(() => { for (const id in stick) $(id).scrollTop = $(id).scrollHeight; });
 }
 
-// ---------- UI lines ----------
+// ---------- Panes ----------
+// Each sentence is a pair of paragraphs: one in the German pane, one in the English pane.
 function makeLine() {
-  $('empty')?.remove();
-  const el = document.createElement('div');
-  el.className = 'line live';
-  el.innerHTML = '<div class="en"></div><div class="de"></div>';
-  $('feed').appendChild(el);
-  return el;
+  const de = document.createElement('p');
+  const en = document.createElement('p');
+  de.className = 's live';
+  en.className = 's live pending';
+  $('feedDe').appendChild(de);
+  $('feedEn').appendChild(en);
+  document.body.classList.add('has-lines');
+  return { de, en };
+}
+
+// Auto-scroll a pane only while the reader is at its bottom, so scrolling back to re-read isn't interrupted.
+const stick = { feedDe: true, feedEn: true };
+for (const id in stick) {
+  $(id).addEventListener('scroll', () => { const m = $(id); stick[id] = m.scrollHeight - m.scrollTop - m.clientHeight < 40; });
 }
 function scrollDown() {
-  const m = $('main');
-  if (m.scrollHeight - m.scrollTop - m.clientHeight < 250) m.scrollTop = m.scrollHeight;
+  for (const id in stick) if (stick[id]) $(id).scrollTop = $(id).scrollHeight;
 }
 
 async function finalize(de) {
-  const el = liveEl || makeLine();
+  const line = liveEl || makeLine();
   liveEl = null;
   clearTimeout(liveTimer);
-  el.classList.remove('live');
-  el.querySelector('.de').textContent = de;
-  el.querySelector('.en').textContent = el.querySelector('.en').textContent || '…';
+  line.de.classList.remove('live');
+  line.en.classList.remove('live');
+  line.de.textContent = de;
+  if (!line.en.textContent) line.en.textContent = '…';
+  const h = { de, en: '', time: new Date() };
+  history.push(h);
   scrollDown();
   try {
-    const en = await translate(de);
-    el.querySelector('.en').textContent = en;
-    history.push({ de, en, time: new Date() });
+    h.en = await translate(de);
+    line.en.textContent = h.en;
   } catch (e) {
-    el.querySelector('.en').textContent = '⚠ ' + e.message;
-    history.push({ de, en: '', time: new Date() });
+    line.en.textContent = '⚠ ' + e.message;
   }
+  line.en.classList.remove('pending');
   saveHistory();
   scrollDown();
 }
 
 function showInterim(de) {
   if (!liveEl) liveEl = makeLine();
-  liveEl.querySelector('.de').textContent = de;
+  liveEl.de.textContent = de;
+  if (!liveEl.en.textContent) liveEl.en.textContent = '…';
   scrollDown();
   // Only translate partial speech with the on-device engine, to spare the online quota.
   if (engine !== 'builtin') return;
   clearTimeout(liveTimer);
-  const el = liveEl;
+  const line = liveEl;
   liveTimer = setTimeout(async () => {
-    try { const en = await translate(de); if (el.classList.contains('live')) el.querySelector('.en').textContent = en; } catch {}
+    try { const en = await translate(de); if (line.en.classList.contains('live')) { line.en.textContent = en; scrollDown(); } } catch {}
   }, 250);
 }
 
@@ -284,7 +436,7 @@ function makeRec() {
   };
   r.onerror = e => {
     if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-      note('Microphone access was blocked. Tap the 🔒 icon in the address bar, allow the microphone, then press Start again.');
+      note('Microphone access was blocked. Tap the 🔒 icon in the address bar, allow the microphone, then press the mic button again.');
       stop();
     } else if (e.error === 'network') {
       note('Connection problem — retrying automatically…');
@@ -295,7 +447,7 @@ function makeRec() {
   r.onend = () => {
     recActive = false;
     // Keep an unfinished sentence rather than losing it when a session ends mid-phrase.
-    if (liveEl) finalize(liveEl.querySelector('.de').textContent);
+    if (liveEl) finalize(liveEl.de.textContent);
     if (listening) restart();
   };
   return r;
@@ -328,9 +480,9 @@ function start() {
   note('');
   listening = true;
   startedAt = Date.now();
-  $('toggle').textContent = '■ Stop';
   $('toggle').classList.add('on');
-  $('status').classList.add('listening');
+  document.body.classList.add('listening');
+  $('toggle').setAttribute('aria-label', 'Stop listening');
   rec = makeRec();
   lastRestart = Date.now();
   rec.start();
@@ -345,10 +497,10 @@ function stop() {
   try { rec && rec.stop(); } catch {}
   try { wakeLock && wakeLock.release(); } catch {}
   wakeLock = null;
-  $('toggle').textContent = '▶ Start';
   $('toggle').classList.remove('on');
-  $('status').classList.remove('listening');
-  setStatus('Idle');
+  document.body.classList.remove('listening');
+  $('toggle').setAttribute('aria-label', 'Start listening');
+  setStatus('Press and start talking');
 }
 
 // Wake locks are dropped when the tab is hidden; re-acquire and resume when it's visible again.
@@ -368,13 +520,18 @@ $('dlg').addEventListener('close', () => {
 });
 $('clear').onclick = () => {
   if (history.length && !confirm('Clear the whole transcript?')) return;
-  $('feed').innerHTML = ''; history.length = 0; liveEl = null; saveHistory();
+  $('feedDe').innerHTML = $('feedEn').innerHTML = ''; history.length = 0; liveEl = null; saveHistory();
 };
-$('size').onchange = e => { document.body.style.setProperty('--size', e.target.value); store.set('lt-size', e.target.value); };
-$('showDe').onclick = () => {
-  const hidden = document.body.classList.toggle('hide-de');
-  $('showDe').textContent = hidden ? 'Show German' : 'Hide German';
-};
+function setSize(v) {
+  document.body.style.setProperty('--size', v);
+  for (const b of $('size').children) b.setAttribute('aria-pressed', b.dataset.size === v);
+}
+function setMode(m) {
+  document.body.dataset.mode = m;
+  for (const b of $('mode').children) b.setAttribute('aria-pressed', b.dataset.mode === m);
+}
+$('size').onclick = e => { const b = e.target.closest('button'); if (b) { setSize(b.dataset.size); store.set('lt-size', b.dataset.size); } };
+$('mode').onclick = e => { const b = e.target.closest('button'); if (b) { setMode(b.dataset.mode); store.set('lt-mode', b.dataset.mode); } };
 $('save').onclick = () => {
   if (!history.length) return;
   const txt = history.map(h => `[${h.time.toLocaleTimeString()}]\nDE: ${h.de}\nEN: ${h.en}\n`).join('\n');
@@ -387,8 +544,8 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Space' && !['SELECT', 'INPUT', 'BUTTON'].includes(e.target.tagName) && !$('dlg').open) { e.preventDefault(); $('toggle').click(); }
 });
 
-const savedSize = store.get('lt-size');
-if (savedSize) { $('size').value = savedSize; document.body.style.setProperty('--size', savedSize); }
+setSize(store.get('lt-size', '22px'));
+setMode(store.get('lt-mode', 'both'));
 restoreHistory();
 
 if (!SR) {
