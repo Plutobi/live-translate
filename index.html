@@ -75,6 +75,14 @@
   }
   .lang .flag { width: 26px; height: 18px; border-radius: 4px; flex: none; box-shadow: 0 0 0 1px var(--border); }
   .lang small { margin-left: auto; color: var(--muted); font-size: 12px; }
+  .flags { display: inline-flex; }
+  .flags > span { display: inline-flex; }
+  body[data-variant="GB"] .f-us, body[data-variant="US"] .f-gb { display: none; }
+  .variant { margin-left: auto; display: inline-flex; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 2px; }
+  .variant button { border: 0; background: transparent; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .variant button[aria-pressed="true"] { background: var(--card); color: var(--blue); box-shadow: var(--shadow); }
+  .pane .variant { background: var(--card); }
+  .pane .variant button[aria-pressed="true"] { background: var(--blue-soft); box-shadow: none; }
   .arrow { width: 56px; height: 56px; flex: none; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); display: grid; place-items: center; color: var(--muted); }
   .arrow svg { width: 18px; height: 18px; }
 
@@ -108,6 +116,9 @@
   #feedEn .s.pending { color: var(--muted); }
   .note { margin: 0 0 10px; padding: 10px 14px; border-radius: 14px; background: var(--red-ring); color: var(--strong); font-size: 14px; display: none; }
   body.has-lines .langs { display: none; }
+  /* Before captions start, the intro can push the page taller than the screen — let it scroll instead of crushing the panes. */
+  body:not(.has-lines) { height: auto; min-height: 100dvh; }
+  body:not(.has-lines) .panes { min-height: 260px; }
 
   /* Once captions are showing, collapse the header and dock to give the panes the room. */
   body.has-lines .dock { padding-top: 2px; }
@@ -192,14 +203,13 @@
   @media (max-width: 480px) {
     .seg button { font-size: 13px; }
     .lang { height: 48px; padding: 0 14px; font-size: 15px; }
-    .lang small { display: none; }
     .arrow { width: 44px; height: 44px; }
     .mic { width: 84px; height: 84px; }
     .round { width: 40px; height: 40px; }
   }
 </style>
 </head>
-<body data-mode="both">
+<body data-mode="both" data-variant="GB">
 <header class="wrap">
   <div class="topbar">
     <div class="brand">
@@ -234,7 +244,7 @@
     <div class="arrow" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
     </div>
-    <div class="lang"><svg class="flag" viewBox="0 0 60 30" aria-hidden="true"><clipPath id="gbc"><path d="M0 0v30h60V0z"/></clipPath><g clip-path="url(#gbc)"><path d="M0 0v30h60V0z" fill="#012169"/><path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0l60 30m0-30L0 30" stroke="#C8102E" stroke-width="3"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/></g></svg>English<small>Captions</small></div>
+    <div class="lang"><span class="flags"><span class="f-gb"><svg class="flag" viewBox="0 0 60 30" aria-hidden="true"><clipPath id="gbc"><path d="M0 0v30h60V0z"/></clipPath><g clip-path="url(#gbc)"><path d="M0 0v30h60V0z" fill="#012169"/><path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0l60 30m0-30L0 30" stroke="#C8102E" stroke-width="3"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/></g></svg></span><span class="f-us"><svg class="flag" viewBox="0 0 38 20" aria-hidden="true"><rect width="38" height="20" fill="#b22234"/><path d="M0 2.3h38M0 5.4h38M0 8.5h38M0 11.5h38M0 14.6h38M0 17.7h38" stroke="#fff" stroke-width="1.55"/><rect width="15.2" height="10.8" fill="#3c3b6e"/></svg></span></span>English<span class="variant" role="group" aria-label="English variant"><button data-v="GB" aria-pressed="true">UK</button><button data-v="US" aria-pressed="false">US</button></span></div>
   </div>
 
   <div class="opts">
@@ -256,7 +266,7 @@
       <div class="pane-body" id="feedDe" data-placeholder="German speech appears here as it's heard."></div>
     </section>
     <section class="pane" id="paneEn">
-      <div class="pane-head"><svg class="flag" viewBox="0 0 60 30" aria-hidden="true"><clipPath id="gbc2"><path d="M0 0v30h60V0z"/></clipPath><g clip-path="url(#gbc2)"><path d="M0 0v30h60V0z" fill="#012169"/><path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0l60 30m0-30L0 30" stroke="#C8102E" stroke-width="3"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/></g></svg>English</div>
+      <div class="pane-head"><span class="flags"><span class="f-gb"><svg class="flag" viewBox="0 0 60 30" aria-hidden="true"><clipPath id="gbc2"><path d="M0 0v30h60V0z"/></clipPath><g clip-path="url(#gbc2)"><path d="M0 0v30h60V0z" fill="#012169"/><path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0l60 30m0-30L0 30" stroke="#C8102E" stroke-width="3"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/></g></svg></span><span class="f-us"><svg class="flag" viewBox="0 0 38 20" aria-hidden="true"><rect width="38" height="20" fill="#b22234"/><path d="M0 2.3h38M0 5.4h38M0 8.5h38M0 11.5h38M0 14.6h38M0 17.7h38" stroke="#fff" stroke-width="1.55"/><rect width="15.2" height="10.8" fill="#3c3b6e"/></svg></span></span>English<span class="variant" role="group" aria-label="English variant"><button data-v="GB" aria-pressed="true">UK</button><button data-v="US" aria-pressed="false">US</button></span></div>
       <div class="pane-body" id="feedEn" data-placeholder="The English translation appears here."></div>
     </section>
   </div>
@@ -308,6 +318,7 @@ let quotaEmail = store.get('lt-email'), googleKey = store.get('lt-gkey');
 let listening = false, rec = null, liveEl = null, liveTimer = null;
 let translator = null, engine = 'mymemory';
 const history = []; // {de, en, time}
+let variant = store.get('lt-variant', 'GB'); // 'GB' | 'US'
 
 function note(msg) { $('note').innerHTML = msg; $('note').style.display = msg ? 'block' : 'none'; }
 function setStatus(t) { $('statusText').textContent = t; }
@@ -340,10 +351,11 @@ function showEngine() {
 }
 
 const cache = new Map();
-async function translate(text) {
+async function translateRaw(text) {
   text = text.trim();
   if (!text) return '';
-  if (cache.has(text)) return cache.get(text);
+  const key = variant + '|' + text;
+  if (cache.has(key)) return cache.get(key);
   let out;
   if (engine === 'builtin') {
     out = await translator.translate(text);
@@ -356,7 +368,7 @@ async function translate(text) {
     if (j.error) throw new Error('Google: ' + j.error.message);
     out = j.data.translations[0].translatedText;
   } else {
-    const url = 'https://api.mymemory.translated.net/get?langpair=de|en&q=' + encodeURIComponent(text.slice(0, 480))
+    const url = `https://api.mymemory.translated.net/get?langpair=de|en-${variant}&q=` + encodeURIComponent(text.slice(0, 480))
       + (quotaEmail ? '&de=' + encodeURIComponent(quotaEmail) : '');
     const r = await fetch(url);
     const j = await r.json();
@@ -364,13 +376,81 @@ async function translate(text) {
     if (j.responseStatus != 200) throw new Error(j.responseDetails || 'Translation failed');
     out = j.responseData.translatedText;
   }
-  cache.set(text, out);
+  cache.set(key, out);
   return out;
+}
+
+const translate = async text => toVariant(await translateRaw(text), variant);
+
+// ---------- UK / US English ----------
+// Google and Chrome's translator only output generic (mostly US) English, so normalise spelling
+// and a few unambiguous words to the chosen variant.
+const EN_PAIRS = (() => {
+  const us2uk = {
+    color: 'colour', colors: 'colours', colored: 'coloured', colorful: 'colourful',
+    favor: 'favour', favors: 'favours', favorite: 'favourite', favorites: 'favourites', favorable: 'favourable',
+    behavior: 'behaviour', behaviors: 'behaviours', behavioral: 'behavioural',
+    honor: 'honour', honors: 'honours', honored: 'honoured', labor: 'labour', neighbor: 'neighbour', neighbors: 'neighbours',
+    neighborhood: 'neighbourhood', humor: 'humour', flavor: 'flavour', flavors: 'flavours', rumor: 'rumour', harbor: 'harbour',
+    center: 'centre', centers: 'centres', centered: 'centred', theater: 'theatre', theaters: 'theatres',
+    fiber: 'fibre', liter: 'litre', liters: 'litres', gray: 'grey',
+    analyze: 'analyse', analyzes: 'analyses', analyzed: 'analysed', analyzing: 'analysing', paralyze: 'paralyse', paralyzed: 'paralysed',
+    catalog: 'catalogue', defense: 'defence', offense: 'offence',
+    traveling: 'travelling', traveled: 'travelled', traveler: 'traveller', travelers: 'travellers',
+    canceled: 'cancelled', canceling: 'cancelling', modeling: 'modelling', labeled: 'labelled', labeling: 'labelling',
+    fulfill: 'fulfil', enroll: 'enrol', enrollment: 'enrolment', skillful: 'skilful', aging: 'ageing',
+    mom: 'mum', jewelry: 'jewellery', pajamas: 'pyjamas', aluminum: 'aluminium', mold: 'mould', cozy: 'cosy',
+    pediatric: 'paediatric', anemia: 'anaemia', anesthesia: 'anaesthesia', maneuver: 'manoeuvre',
+    edema: 'oedema', estrogen: 'oestrogen', fetus: 'foetus', leukemia: 'leukaemia', orthopedic: 'orthopaedic',
+  };
+  const stems = ['organ', 'real', 'recogn', 'apolog', 'emphas', 'critic', 'summar', 'priorit', 'minim', 'maxim',
+    'special', 'optim', 'categor', 'memor', 'final', 'util', 'standard', 'custom', 'visual', 'character',
+    'normal', 'general', 'global', 'modern', 'mobil', 'stabil', 'sympath', 'author', 'civil', 'synchron', 'hospital'];
+  for (const st of stems) {
+    for (const [a, b] of [['ize', 'ise'], ['izes', 'ises'], ['ized', 'ised'], ['izing', 'ising'], ['ization', 'isation'], ['izations', 'isations'], ['izer', 'iser']]) {
+      us2uk[st + a] = st + b;
+    }
+  }
+  const uk2us = Object.fromEntries(Object.entries(us2uk).map(([a, b]) => [b, a]));
+  // Vocabulary: only swaps that stay correct regardless of context.
+  const phrasesToUK = [['cell phones', 'mobile phones'], ['cell phone', 'mobile phone'], ['zip code', 'postcode'],
+    ['movie theater', 'cinema'], ['an apartment', 'a flat'], ['an elevator', 'a lift'], ['apartments', 'flats'], ['apartment', 'flat'], ['elevators', 'lifts'], ['elevator', 'lift'],
+    ['sidewalk', 'pavement'], ['garbage', 'rubbish'], ['math', 'maths'], ['soccer', 'football'], ['vacation', 'holiday']];
+  const phrasesToUS = [['mobile phones', 'cell phones'], ['mobile phone', 'cell phone'], ['postcode', 'zip code'], ['cinema', 'movie theater'], ['maths', 'math']];
+  return { GB: { words: us2uk, phrases: phrasesToUK }, US: { words: uk2us, phrases: phrasesToUS } };
+})();
+
+function matchCase(src, dst) {
+  if (src === src.toUpperCase() && src.length > 1) return dst.toUpperCase();
+  if (src[0] === src[0].toUpperCase()) return dst[0].toUpperCase() + dst.slice(1);
+  return dst;
+}
+function toVariant(text, v) {
+  const t = EN_PAIRS[v];
+  if (!t || !text) return text;
+  for (const [from, to] of t.phrases) {
+    text = text.replace(new RegExp(`\\b${from}\\b`, 'gi'), m => matchCase(m, to));
+  }
+  return text.replace(/\b[A-Za-z]+\b/g, w => { const r = t.words[w.toLowerCase()]; return r ? matchCase(w, r) : w; });
+}
+
+function setVariant(v) {
+  variant = v;
+  document.body.dataset.variant = v;
+  document.querySelectorAll('.variant button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
+  // Convert what's already on screen.
+  const lines = $('feedEn').children;
+  history.forEach((h, i) => {
+    if (!h.en) return;
+    h.en = toVariant(h.raw || h.en, v);
+    if (lines[i]) lines[i].textContent = h.en;
+  });
+  saveHistory();
 }
 
 // ---------- Transcript ----------
 function saveHistory() {
-  $('count').textContent = history.length ? '· ' + history.length + ' sentences' : '';
+  $('count').textContent = history.length ? `· ${history.length} sentence${history.length === 1 ? '' : 's'}` : '';
   document.body.classList.toggle('has-lines', !!(history.length || liveEl));
   store.set('lt-history', JSON.stringify(history));
 }
@@ -418,11 +498,12 @@ async function finalize(de) {
   line.en.classList.remove('live');
   line.de.textContent = de;
   if (!line.en.textContent) line.en.textContent = '…';
-  const h = { de, en: '', time: new Date() };
+  const h = { de, en: '', raw: '', time: new Date() };
   history.push(h);
   scrollDown();
   try {
-    h.en = await translate(de);
+    h.raw = await translateRaw(de);
+    h.en = toVariant(h.raw, variant);
     line.en.textContent = h.en;
   } catch (e) {
     line.en.textContent = '⚠ ' + e.message;
@@ -565,6 +646,10 @@ function setMode(m) {
   for (const b of $('mode').children) b.setAttribute('aria-pressed', b.dataset.mode === m);
 }
 $('size').onclick = e => { const b = e.target.closest('button'); if (b) { setSize(b.dataset.size); store.set('lt-size', b.dataset.size); } };
+document.querySelectorAll('.variant').forEach(g => g.addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (b) { setVariant(b.dataset.v); store.set('lt-variant', b.dataset.v); }
+}));
 $('mode').onclick = e => { const b = e.target.closest('button'); if (b) { setMode(b.dataset.mode); store.set('lt-mode', b.dataset.mode); } };
 $('save').onclick = () => {
   if (!history.length) return;
@@ -581,6 +666,7 @@ document.addEventListener('keydown', e => {
 setSize(store.get('lt-size', '22px'));
 setMode(store.get('lt-mode', 'both'));
 restoreHistory();
+setVariant(variant);
 
 if (!SR) {
   note('This browser does not support live speech recognition. Please open this page in <b>Chrome</b>, <b>Edge</b>, or <b>Safari</b>.');

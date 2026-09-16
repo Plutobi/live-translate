@@ -17,6 +17,7 @@ Open the GitHub Pages link in **Chrome** (Android / desktop), **Edge**, or **Saf
   [Google Cloud Translation API key](https://cloud.google.com/translate/docs/setup) in Settings
   (the free tier covers about 500,000 characters a month). Restrict the key to your GitHub Pages URL.
 - Keep your phone plugged in.
+- **UK / US** — choose British or American English (spelling like colour/color and a few words like flat/apartment).
 - **Space bar** — start/stop on desktop.
 
 ## How it works
